@@ -24,7 +24,7 @@ The trainer will project the same command running on their machine. You run
 it on yours **in parallel**.
 
 ```sh
-cd /opt/cka-training/infra/scripts
+cd ~/cka-intensive/infra/scripts
 ./kind-bootstrap.sh
 ```
 

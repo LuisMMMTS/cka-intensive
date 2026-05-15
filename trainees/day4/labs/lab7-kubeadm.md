@@ -159,7 +159,7 @@ feel for Lab 9 (troubleshooting):
 ```sh
 sudo kubeadm reset --force
 sudo rm -rf /etc/kubernetes /var/lib/etcd $HOME/.kube/config
-cd /opt/cka-training/infra/scripts
+cd ~/cka-intensive/infra/scripts
 ./kind-bootstrap.sh
 ```
 

@@ -131,23 +131,29 @@ fi
 # ----- 7. repo + shell hygiene ---------------------------------------------
 
 log "checking course repo + shell"
-if [ -d /opt/cka-training/.git ]; then
-  pass "course repo at /opt/cka-training"
+REPO="$HOME/cka-intensive"
+if [ -d "$REPO/.git" ]; then
+  pass "course repo at $REPO"
 else
-  fail "course repo missing at /opt/cka-training"
+  fail "course repo missing at $REPO"
 fi
 for f in kind-bootstrap.sh kind-reset.sh lab-clean.sh verify-cluster.sh preload-images.sh; do
-  if [ -x "/opt/cka-training/infra/scripts/$f" ]; then
+  if [ -x "$REPO/infra/scripts/$f" ]; then
     pass "script $f executable"
   else
     fail "script $f missing or not executable"
   fi
 done
 
-if grep -q '# CKA course shell setup' "$HOME/.bashrc" 2>/dev/null; then
-  pass "shell aliases in .bashrc"
+if [ -f /etc/profile.d/cka.sh ] && grep -q 'alias k=kubectl' /etc/profile.d/cka.sh 2>/dev/null; then
+  pass "system-wide shell aliases at /etc/profile.d/cka.sh"
 else
-  fail "CKA shell aliases not in .bashrc"
+  fail "/etc/profile.d/cka.sh missing or incomplete"
+fi
+if command -v kind-bootstrap.sh >/dev/null 2>&1; then
+  pass "scripts on PATH (kind-bootstrap.sh resolvable)"
+else
+  fail "scripts not on PATH — re-login or 'source /etc/profile.d/cka.sh'"
 fi
 
 # ----- 8. cached lab images ------------------------------------------------

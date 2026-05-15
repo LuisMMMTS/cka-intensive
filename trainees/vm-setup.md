@@ -2,7 +2,7 @@
 
 You're working on a **Debian 13 VM** that the trainer provisioned for you. It
 already has Docker, kubectl, Helm, and kind pre-installed, plus the course
-repo cloned at `/opt/cka-training` (or your home directory).
+repo cloned at `~/cka-intensive` (or your home directory).
 
 Today you'll bring up a **3-node Kubernetes cluster using kind**
 (Kubernetes-in-Docker). Each "node" is a Docker container with its own
@@ -52,7 +52,7 @@ The trainer will project the same command running on their machine. You run
 it on yours **in parallel**.
 
 ```sh
-cd /opt/cka-training/infra/scripts     # or wherever the repo is
+cd ~/cka-intensive/infra/scripts     # or wherever the repo is
 ./kind-bootstrap.sh
 ```
 

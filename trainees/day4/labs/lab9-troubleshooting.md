@@ -134,7 +134,7 @@ Show the trainer:
 ## After the lab
 
 ```sh
-cd /opt/cka-training/infra/scripts
+cd ~/cka-intensive/infra/scripts
 ./kind-reset.sh
 ```
 

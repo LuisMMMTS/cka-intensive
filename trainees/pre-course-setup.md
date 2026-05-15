@@ -92,8 +92,8 @@ kubectl version --client      # 1.32.x
 helm version                  # 3.16+
 kind version                  # 0.25+
 
-# Course repo cloned at /opt/cka-training (or your home dir; trainer will say)
-ls /opt/cka-training
+# Course repo cloned at ~/cka-intensive (or your home dir; trainer will say)
+ls ~/cka-intensive
 ```
 
 Shell hygiene is already set up in `~/.bashrc`:
@@ -113,7 +113,7 @@ export now='--grace-period=0 --force'
 After we open the room and do exam logistics, you'll bootstrap the cluster:
 
 ```sh
-cd /opt/cka-training/infra/scripts
+cd ~/cka-intensive/infra/scripts
 ./kind-bootstrap.sh
 ./verify-cluster.sh
 ```
