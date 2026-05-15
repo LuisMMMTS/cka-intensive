@@ -58,11 +58,13 @@ step "configuring for user: $TRAINEE_USER  (home: $TRAINEE_HOME)"
 step "installing base packages"
 apt-get update
 apt-get -y upgrade
+# Note: on Debian 13 (trixie), dnsutils → bind9-dnsutils; software-properties-common
+# isn't needed because we add apt repos manually via files in sources.list.d/.
 apt-get -y install \
   curl ca-certificates gnupg lsb-release \
   jq git tree vim less tmux htop \
-  dnsutils netcat-openbsd iproute2 procps \
-  bash-completion apt-transport-https software-properties-common
+  bind9-dnsutils netcat-openbsd iproute2 procps \
+  bash-completion apt-transport-https
 
 # ----- 2. Docker Engine -----------------------------------------------------
 
