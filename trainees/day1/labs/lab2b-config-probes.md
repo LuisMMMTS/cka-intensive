@@ -1,0 +1,96 @@
+# Lab 2b — ConfigMaps, Secrets, Probes
+
+**Time:** 45 min
+**Goal:** wire config and health checks like the exam will ask you to.
+
+Work in namespace `lab2b`:
+```sh
+k create ns lab2b && k config set-context --current --namespace=lab2b
+```
+
+---
+
+## 2b.1 ConfigMap as env vars (single key)
+
+Create a ConfigMap `app-config` with:
+
+| Key | Value |
+|---|---|
+| `LOG_LEVEL` | `debug` |
+| `TIMEOUT` | `30s` |
+
+Then create a Pod `env1` from `busybox:1.36` running `sleep 3600`, exposing `LOG_LEVEL` as an env var sourced from the ConfigMap.
+
+Verify with `k exec env1 -- env | grep LOG_LEVEL`.
+
+## 2b.2 ConfigMap as env vars (all keys)
+
+Pod `env2`, same image and command, but use `envFrom` to inject **all** keys of `app-config` as env vars (without listing each one).
+
+Verify both `LOG_LEVEL` and `TIMEOUT` show up.
+
+## 2b.3 ConfigMap as a volume
+
+Create a second ConfigMap `app-files`:
+
+```sh
+k create cm app-files \
+  --from-literal=app.properties=$'foo=bar\nbaz=qux' \
+  --from-literal=banner.txt='hello from k8s'
+```
+
+Pod `vol1`, mount `app-files` at `/etc/app`. Then:
+```sh
+k exec vol1 -- ls /etc/app
+k exec vol1 -- cat /etc/app/app.properties
+```
+
+**Bonus:** edit the ConfigMap (`k edit cm app-files`), change `banner.txt`, wait ~60s, `cat` the file again from inside the pod. Did it update?
+
+## 2b.4 Secret as env
+
+Create a Secret `db` with `username=admin` and `password=s3cret`. Pod `sec1` exposes them as `DB_USER` and `DB_PASS` env vars.
+
+Verify with `k exec sec1 -- env | grep ^DB_`.
+
+## 2b.5 Probes
+
+Create a Deployment `web` (`nginx:1.27`, 3 replicas, port 80) with all three probes:
+
+- **startup**: `httpGet /` on port 80; `failureThreshold: 30`, `periodSeconds: 2` (gives nginx 60s to boot)
+- **readiness**: `httpGet /` on port 80; `periodSeconds: 5`
+- **liveness**: `httpGet /` on port 80; `periodSeconds: 10`, `failureThreshold: 3`
+
+Expose with a ClusterIP Service. From a debug pod, hit the service repeatedly.
+
+## 2b.6 Break the readiness probe
+
+`k edit deploy web` and change the readiness probe's path to `/this-does-not-exist`. Watch:
+
+```sh
+k get pods -l app=web -w
+k get endpoints web
+```
+
+Pods should stay `Running` but `Ready: 0/1`. Endpoints should drain to empty.
+
+Roll back: `k rollout undo deploy/web`.
+
+## 2b.7 Break the liveness probe
+
+Same trick on liveness. Watch the restart counter climb. This is what `CrashLoopBackOff` looks like before it lands in that state.
+
+Roll back.
+
+## Cleanup
+
+```sh
+k delete ns lab2b
+```
+
+## Deliverable
+
+Show the trainer:
+- `k get pods` showing the various env/volume/sec test pods
+- A `describe` of `web` showing all three probes wired up
+- The endpoints behavior when readiness fails (empty / repopulated)
