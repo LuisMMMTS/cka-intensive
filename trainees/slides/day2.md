@@ -16,7 +16,7 @@ style: |
 # CKA Intensive
 ## Day 2 — Services, DNS, Ingress, Gateway API, NetworkPolicy
 
-Target: **Kubernetes v1.32**
+Target: **Kubernetes v1.36**
 
 ---
 

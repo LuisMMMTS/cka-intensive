@@ -88,7 +88,7 @@ following will all work out of the box:
 
 ```sh
 docker version                # Docker Engine ≥ 24
-kubectl version --client      # 1.32.x
+kubectl version --client      # 1.36.x
 helm version                  # 3.16+
 kind version                  # 0.25+
 

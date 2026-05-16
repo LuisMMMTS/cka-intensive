@@ -15,7 +15,7 @@ k create ns lab6f
 ```sh
 k label ns lab6f \
   pod-security.kubernetes.io/enforce=restricted \
-  pod-security.kubernetes.io/enforce-version=v1.32 \
+  pod-security.kubernetes.io/enforce-version=v1.36 \
   pod-security.kubernetes.io/warn=restricted \
   pod-security.kubernetes.io/audit=restricted
 ```
@@ -38,7 +38,7 @@ You should see a rejection. The message names exactly which policy violations we
 
 ```
 Error from server (Forbidden): pods "nginx" is forbidden:
-violates PodSecurity "restricted:v1.32":
+violates PodSecurity "restricted:v1.36":
 allowPrivilegeEscalation != false (container "nginx" must set ...),
 unrestricted capabilities (container "nginx" must set ...),
 runAsNonRoot != true (pod or container "nginx" must set ...),

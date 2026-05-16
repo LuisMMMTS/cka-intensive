@@ -2,7 +2,7 @@
 
 Welcome. This repo is your handbook for the course and your reference afterwards.
 
-**Target Kubernetes version:** v1.32 (current stable as of May 2026).
+**Target Kubernetes version:** v1.36 (current stable as of May 2026).
 
 ## How the course runs
 

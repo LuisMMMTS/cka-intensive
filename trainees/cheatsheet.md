@@ -1,4 +1,4 @@
-# CKA Survival Cheatsheet — v1.32
+# CKA Survival Cheatsheet — v1.36
 
 ## Shell setup (do this every fresh terminal in the exam)
 
@@ -101,15 +101,15 @@ sudo mv /var/lib/etcd /var/lib/etcd.old && sudo mv /var/lib/etcd-restore /var/li
 sudo mv /etc/kubernetes/manifests.bak /etc/kubernetes/manifests
 ```
 
-## kubeadm upgrade flow (memorize — to v1.32.x)
+## kubeadm upgrade flow (memorize — to v1.36.x)
 
 ```sh
 # control plane (first cp)
 k drain <cp> --ignore-daemonsets
-sudo apt-get update && sudo apt-get install -y kubeadm=1.32.x-*
+sudo apt-get update && sudo apt-get install -y kubeadm=1.36.x-*
 sudo kubeadm upgrade plan
-sudo kubeadm upgrade apply v1.32.x
-sudo apt-get install -y kubelet=1.32.x-* kubectl=1.32.x-*
+sudo kubeadm upgrade apply v1.36.x
+sudo apt-get install -y kubelet=1.36.x-* kubectl=1.36.x-*
 sudo systemctl daemon-reload && sudo systemctl restart kubelet
 k uncordon <cp>
 
@@ -118,9 +118,9 @@ k uncordon <cp>
 # workers (one at a time)
 k drain <w> --ignore-daemonsets
 # on worker:
-sudo apt-get install -y kubeadm=1.32.x-*
+sudo apt-get install -y kubeadm=1.36.x-*
 sudo kubeadm upgrade node
-sudo apt-get install -y kubelet=1.32.x-* kubectl=1.32.x-*
+sudo apt-get install -y kubelet=1.36.x-* kubectl=1.36.x-*
 sudo systemctl daemon-reload && sudo systemctl restart kubelet
 k uncordon <w>
 ```

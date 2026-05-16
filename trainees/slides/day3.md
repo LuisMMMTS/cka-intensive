@@ -16,7 +16,7 @@ style: |
 # CKA Intensive
 ## Day 3 — Scheduling, Storage, RBAC, Helm, Kustomize, HPA
 
-Target: **Kubernetes v1.32**
+Target: **Kubernetes v1.36**
 
 The longest day. Helm + Kustomize + HPA are new in the 2024 curriculum — do not skip.
 
@@ -670,7 +670,7 @@ Three **profiles**, three **modes**, applied per namespace via labels:
 metadata:
   labels:
     pod-security.kubernetes.io/enforce: restricted
-    pod-security.kubernetes.io/enforce-version: v1.32
+    pod-security.kubernetes.io/enforce-version: v1.36
     pod-security.kubernetes.io/audit:   restricted
     pod-security.kubernetes.io/warn:    restricted
 ```
@@ -695,7 +695,7 @@ The **restricted** profile is what your namespaces should target. It will reject
 
 You'll see the rejection inline:
 ```
-Error: pods "web" is forbidden: violates PodSecurity "restricted:v1.32":
+Error: pods "web" is forbidden: violates PodSecurity "restricted:v1.36":
 allowPrivilegeEscalation != false, unrestricted capabilities (...)
 ```
 

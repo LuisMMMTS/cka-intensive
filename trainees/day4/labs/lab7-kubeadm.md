@@ -141,7 +141,7 @@ sudo chown $(id -u):$(id -g) $HOME/.kube/config
 
 kubectl get nodes
 # NAME            STATUS     ROLES           AGE   VERSION
-# <vm-hostname>   NotReady   control-plane   1m    v1.32.0
+# <vm-hostname>   NotReady   control-plane   1m    v1.36.0
 ```
 
 `NotReady` is expected — no CNI yet.
@@ -212,7 +212,7 @@ own can of worms.
 
 Show your trainer:
 
-1. `kubectl get nodes -o wide` — 1 node Ready, control-plane role, v1.32.0
+1. `kubectl get nodes -o wide` — 1 node Ready, control-plane role, v1.36.0
 2. `kubectl get pods -o wide` — your nginx pods Running
 3. `sudo kubeadm certs check-expiration` output
 

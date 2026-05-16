@@ -20,11 +20,11 @@ set -euo pipefail
 # ----- config ---------------------------------------------------------------
 
 COURSE_REPO="${COURSE_REPO:-https://github.com/LuisMMMTS/cka-intensive.git}"
-K8S_VERSION="${K8S_VERSION:-1.32.0}"
-K8S_MINOR="${K8S_MINOR:-1.32}"
+K8S_VERSION="${K8S_VERSION:-1.36.0}"
+K8S_MINOR="${K8S_MINOR:-1.36}"
 KIND_VERSION="${KIND_VERSION:-v0.31.0}"
 K9S_VERSION="${K9S_VERSION:-v0.32.7}"
-KINDEST_IMAGE="${KINDEST_IMAGE:-kindest/node:v1.32.0}"
+KINDEST_IMAGE="${KINDEST_IMAGE:-kindest/node:v1.36.0}"
 INSTALL_VSCODE="${INSTALL_VSCODE:-1}"
 # helm comes from Debian's apt repo (no version pinning needed)
 
@@ -53,12 +53,18 @@ step "configuring for user: $TRAINEE_USER  (home: $TRAINEE_HOME)"
 
 step "installing base packages"
 apt-get update
+# WARNING: apt-get upgrade has historically broken dadesktop auto-login
+# (display-manager configs reset). Trainer's call — kept here because
+# it's what you'd run on a real Debian install. If auto-login breaks
+# again on a fresh master VM, suspect this line first.
+apt-get -y upgrade
 apt-get -y install \
   curl ca-certificates gnupg lsb-release \
   jq git tree vim nano less tmux htop \
   bind9-dnsutils netcat-openbsd iproute2 procps \
   bash-completion apt-transport-https \
-  helm
+  helm \
+  golang-go
 
 # ----- 2. Docker Engine (DEB822 .sources format) ---------------------------
 
@@ -89,10 +95,13 @@ curl -fsSLo /usr/local/bin/kubectl \
   "https://dl.k8s.io/release/v${K8S_VERSION}/bin/linux/amd64/kubectl"
 chmod +x /usr/local/bin/kubectl
 
-step "installing kind ${KIND_VERSION}"
-curl -fsSLo /usr/local/bin/kind \
-  "https://kind.sigs.k8s.io/dl/${KIND_VERSION}/kind-linux-amd64"
-chmod +x /usr/local/bin/kind
+step "installing kind ${KIND_VERSION} (via go install)"
+# Uses the just-installed golang-go to build kind from source.
+# GOBIN puts the binary in /usr/local/bin (system-wide) instead of /root/go/bin.
+# Modules + build cache go to /tmp/gomod (discarded after).
+GOBIN=/usr/local/bin GOMODCACHE=/tmp/gomod GOCACHE=/tmp/gocache \
+  go install "sigs.k8s.io/kind@${KIND_VERSION}"
+rm -rf /tmp/gomod /tmp/gocache
 
 step "installing k9s ${K9S_VERSION} (apt-tracked .deb)"
 curl -fsSLo /tmp/k9s.deb \

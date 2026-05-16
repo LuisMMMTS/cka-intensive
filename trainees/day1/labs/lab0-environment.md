@@ -30,7 +30,7 @@ cd ~/cka-intensive/infra/scripts
 
 What this does (≈ 2-3 min):
 
-1. Creates a 3-node kind cluster named `cka` running Kubernetes **v1.32.0**.
+1. Creates a 3-node kind cluster named `cka` running Kubernetes **v1.36.0**.
 2. Disables kind's default CNI (kindnet) and installs **Calico** so
    NetworkPolicy enforces (needed for Day 2 Lab 4).
 3. Installs **metrics-server** with `--kubelet-insecure-tls` (needed for
@@ -67,9 +67,9 @@ Expected:
 
 ```
 NAME                 STATUS   ROLES           AGE    VERSION
-cka-control-plane    Ready    control-plane   3m     v1.32.0
-cka-worker           Ready    <none>          2m     v1.32.0
-cka-worker2          Ready    <none>          2m     v1.32.0
+cka-control-plane    Ready    control-plane   3m     v1.36.0
+cka-worker           Ready    <none>          2m     v1.36.0
+cka-worker2          Ready    <none>          2m     v1.36.0
 ```
 
 ```sh
@@ -139,7 +139,7 @@ week.
 
 Show your trainer:
 
-1. `kubectl get nodes` — 3 Ready nodes at v1.32.0
+1. `kubectl get nodes` — 3 Ready nodes at v1.36.0
 2. `kubectl get pods -A` — all Running or Completed
 3. `./verify-cluster.sh` exits 0 (or you've named the failing check)
 

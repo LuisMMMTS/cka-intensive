@@ -4,7 +4,7 @@
 #
 # Cluster name:  cka
 # Nodes:         cka-control-plane, cka-worker, cka-worker2
-# K8s version:   v1.32.0   (via kindest/node image)
+# K8s version:   v1.36.0   (via kindest/node image)
 # CNI:           Calico    (replaces kindnet so NetworkPolicy actually enforces)
 # Plus:          metrics-server with --kubelet-insecure-tls (for HPA)
 #
@@ -18,7 +18,7 @@
 set -euo pipefail
 
 CLUSTER=cka
-K8S_NODE_IMAGE="kindest/node:v1.32.0"
+K8S_NODE_IMAGE="kindest/node:v1.36.0"
 CALICO_VERSION="v3.28.0"
 KIND_CONFIG="$(dirname "$0")/kind-config.yaml"
 

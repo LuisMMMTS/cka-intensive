@@ -77,7 +77,7 @@ fi
 # ----- 4. k8s tooling -------------------------------------------------------
 
 log "checking Kubernetes tooling"
-check_version kubectl '1\.32' 'kubectl version --client -o yaml 2>/dev/null | awk "/gitVersion/ {print \$2; exit}"'
+check_version kubectl '1\.36' 'kubectl version --client -o yaml 2>/dev/null | awk "/gitVersion/ {print \$2; exit}"'
 check_version helm    'v3\.16' 'helm version --short 2>/dev/null'
 check_version kind    'v0\.25' 'kind version 2>/dev/null'
 
@@ -85,7 +85,7 @@ check_version kind    'v0\.25' 'kind version 2>/dev/null'
 # The kubeadm prereqs (swap, sysctls, modules, containerd cgroup driver) are
 # set up by the trainee themselves at the start of Lab 7. We only check that
 # the binaries exist here.
-check_version kubeadm '1\.32' 'kubeadm version -o short 2>/dev/null'
+check_version kubeadm '1\.36' 'kubeadm version -o short 2>/dev/null'
 check_cmd kubelet
 check_cmd etcdctl    "etcdctl (etcd-client)"
 
@@ -136,7 +136,7 @@ fi
 # ----- 8. cached lab images ------------------------------------------------
 
 log "checking pre-pulled lab images"
-EXPECTED=(nginx:1.27 busybox:1.36 kindest/node:v1.32.0)
+EXPECTED=(nginx:1.27 busybox:1.36 kindest/node:v1.36.0)
 for img in "${EXPECTED[@]}"; do
   if docker image inspect "$img" >/dev/null 2>&1; then
     pass "image cached: $img"

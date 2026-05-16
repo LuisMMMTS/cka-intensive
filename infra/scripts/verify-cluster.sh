@@ -64,10 +64,10 @@ else
   kubectl get nodes 2>/dev/null || true
 fi
 
-if kubectl get nodes -o jsonpath='{.items[*].status.nodeInfo.kubeletVersion}' 2>/dev/null | grep -q 'v1.32'; then
-  pass "all nodes at v1.32"
+if kubectl get nodes -o jsonpath='{.items[*].status.nodeInfo.kubeletVersion}' 2>/dev/null | grep -q 'v1.36'; then
+  pass "all nodes at v1.36"
 else
-  fail "nodes not all at v1.32"
+  fail "nodes not all at v1.36"
   kubectl get nodes -o wide 2>/dev/null || true
 fi
 

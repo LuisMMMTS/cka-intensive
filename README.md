@@ -1,7 +1,7 @@
 # CKA Intensive — 4-Day Training (Trainee Materials)
 
 A 4-day, hands-on Certified Kubernetes Administrator (CKA) training course
-targeting **Kubernetes v1.32**. This repo contains everything trainees see:
+targeting **Kubernetes v1.36**. This repo contains everything trainees see:
 labs, slides, primers, reference sheets, and the platform scripts that
 build the per-trainee Kubernetes cluster.
 

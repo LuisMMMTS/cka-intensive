@@ -16,7 +16,7 @@ style: |
 # CKA Intensive
 ## Day 4 — Cluster Lifecycle, CRDs, Troubleshooting, Mock Exam
 
-Target: **Kubernetes v1.32**
+Target: **Kubernetes v1.36**
 
 The exam-prep day. We build a cluster, recover from disasters, learn the troubleshooting playbook, then sit a mock.
 
@@ -99,15 +99,15 @@ If you forget `SystemdCgroup = true`, kubelet and containerd will fight over cgr
 
 ---
 
-## Install kubelet, kubeadm, kubectl (v1.32)
+## Install kubelet, kubeadm, kubectl (v1.36)
 
 ```sh
 sudo mkdir -p -m 755 /etc/apt/keyrings
-curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.32/deb/Release.key | \
+curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.36/deb/Release.key | \
   sudo gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
 
 echo "deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] \
-https://pkgs.k8s.io/core:/stable:/v1.32/deb/ /" | \
+https://pkgs.k8s.io/core:/stable:/v1.36/deb/ /" | \
   sudo tee /etc/apt/sources.list.d/kubernetes.list
 
 sudo apt-get update
@@ -174,8 +174,8 @@ On control plane:
 ```sh
 k get nodes
 # NAME    STATUS   ROLES           AGE   VERSION
-# cp-1    Ready    control-plane   5m    v1.32.0
-# w-1     Ready    <none>          1m    v1.32.0
+# cp-1    Ready    control-plane   5m    v1.36.0
+# w-1     Ready    <none>          1m    v1.36.0
 ```
 
 To set worker role label cosmetically:
@@ -240,21 +240,21 @@ sudo kubeadm join cluster.example.com:6443 \
 # CONTROL PLANE (one CP at a time in HA)
 k drain <cp> --ignore-daemonsets
 sudo apt-get update
-sudo apt-get install -y kubeadm=1.32.x-*
+sudo apt-get install -y kubeadm=1.36.x-*
 sudo kubeadm upgrade plan
-sudo kubeadm upgrade apply v1.32.x
+sudo kubeadm upgrade apply v1.36.x
 # (on additional CPs: `kubeadm upgrade node` instead of `apply`)
 
-sudo apt-get install -y kubelet=1.32.x-* kubectl=1.32.x-*
+sudo apt-get install -y kubelet=1.36.x-* kubectl=1.36.x-*
 sudo systemctl daemon-reload && sudo systemctl restart kubelet
 k uncordon <cp>
 
 # WORKERS (one at a time)
 k drain <w> --ignore-daemonsets
 # on worker:
-sudo apt-get install -y kubeadm=1.32.x-*
+sudo apt-get install -y kubeadm=1.36.x-*
 sudo kubeadm upgrade node
-sudo apt-get install -y kubelet=1.32.x-* kubectl=1.32.x-*
+sudo apt-get install -y kubelet=1.36.x-* kubectl=1.36.x-*
 sudo systemctl daemon-reload && sudo systemctl restart kubelet
 k uncordon <w>
 ```
@@ -492,7 +492,7 @@ The exam tests kubeadm because it tests the **full surface**. In your day job yo
 sudo -i
 sudo systemctl disable kubelet               # don't conflict with kubeadm's kubelet
 sudo systemctl stop kubelet
-curl -sfL https://get.k3s.io | INSTALL_K3S_VERSION=v1.32.0+k3s1 sh -
+curl -sfL https://get.k3s.io | INSTALL_K3S_VERSION=v1.36.0+k3s1 sh -
 sudo k3s kubectl get nodes
 sudo k3s kubectl get pods -A
 ```
