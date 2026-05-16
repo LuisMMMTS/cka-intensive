@@ -3,22 +3,17 @@
 # Run this ONCE on the master VM. Then snapshot the VM in dadesktop
 # and replicate per trainee.
 #
+# DESIGN PRINCIPLE: this script only INSTALLS software and writes
+# /etc/profile.d/cka.sh + /etc/motd. It does not change kernel modules,
+# sysctls, swap, fstab, locales, or display-manager configs. Anything
+# that touches running-system state happens later (in lab scripts that
+# trainees run themselves on Day 4).
+#
+# This makes the bake safe against dadesktop's image config — no risk of
+# breaking auto-login, slow-boot, or display managers.
+#
 # Usage:
 #   sudo ./template-bake.sh
-#
-# The script auto-detects which user to configure (the existing non-root
-# user the dadesktop VM was provisioned with). The course repo URL is
-# hardcoded.
-#
-# Env vars (you almost never need to set these):
-#   TRAINEE_USER=<auto>     # override the auto-detected user
-#   COURSE_REPO=<built-in>  # override the public repo URL
-#   K8S_VERSION=1.32.0      # kubeadm/kubelet/kubectl version
-#   K8S_MINOR=1.32          # apt repo path
-#   HELM_VERSION=v3.16.4
-#   KIND_VERSION=v0.25.0
-#   KINDEST_IMAGE=kindest/node:v1.32.0
-#   INSTALL_VSCODE=1        # set to 0 to skip VS Code
 
 set -euo pipefail
 
@@ -29,6 +24,7 @@ K8S_VERSION="${K8S_VERSION:-1.32.0}"
 K8S_MINOR="${K8S_MINOR:-1.32}"
 HELM_VERSION="${HELM_VERSION:-v3.16.4}"
 KIND_VERSION="${KIND_VERSION:-v0.25.0}"
+K9S_VERSION="${K9S_VERSION:-v0.32.7}"
 KINDEST_IMAGE="${KINDEST_IMAGE:-kindest/node:v1.32.0}"
 INSTALL_VSCODE="${INSTALL_VSCODE:-1}"
 
@@ -38,7 +34,7 @@ die()  { printf '\033[31m[ERROR]\033[0m %s\n' "$*" >&2; exit 1; }
 [ "$EUID" -eq 0 ] || die "run as root (sudo)"
 
 # ----- 0. Auto-detect the trainee user --------------------------------------
-# Priority: explicit env var > sudo invoker > first UID>=1000 in passwd
+
 if [ -z "${TRAINEE_USER:-}" ]; then
   TRAINEE_USER="${SUDO_USER:-}"
 fi
@@ -53,29 +49,15 @@ REPO_PATH="$TRAINEE_HOME/cka-intensive"
 
 step "configuring for user: $TRAINEE_USER  (home: $TRAINEE_HOME)"
 
-# ----- 1. Base packages -----------------------------------------------------
+# ----- 1. Base packages (install-only; no apt-get upgrade) -----------------
 
 step "installing base packages"
-# IMPORTANT: do NOT run `apt-get -y upgrade` here — it would upgrade the
-# display manager (gdm3/lightdm/sddm) and reset dadesktop's auto-login
-# config + slow boot times noticeably. We only install what we need.
 apt-get update
 apt-get -y install \
   curl ca-certificates gnupg lsb-release \
   jq git tree vim less tmux htop \
   bind9-dnsutils netcat-openbsd iproute2 procps \
-  bash-completion apt-transport-https \
-  locales
-
-step "setting UTF-8 locale (so ✓ / ✗ in script output renders correctly)"
-sed -i 's/# *en_US.UTF-8 UTF-8/en_US.UTF-8 UTF-8/' /etc/locale.gen
-locale-gen en_US.UTF-8 >/dev/null
-update-locale LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8
-# Also write defaults so even non-login shells get UTF-8
-cat >/etc/default/locale <<'EOF'
-LANG=en_US.UTF-8
-LC_ALL=en_US.UTF-8
-EOF
+  bash-completion apt-transport-https
 
 # ----- 2. Docker Engine -----------------------------------------------------
 
@@ -93,7 +75,7 @@ systemctl enable --now docker
 groupadd -f docker
 usermod -aG docker "$TRAINEE_USER"
 
-# ----- 3. kubectl + helm + kind --------------------------------------------
+# ----- 3. kubectl + helm + kind + k9s (binaries) ---------------------------
 
 step "installing kubectl ${K8S_VERSION}"
 curl -fsSLo /usr/local/bin/kubectl \
@@ -111,16 +93,17 @@ curl -fsSLo /usr/local/bin/kind \
   "https://kind.sigs.k8s.io/dl/${KIND_VERSION}/kind-linux-amd64"
 chmod +x /usr/local/bin/kind
 
-step "installing k9s (terminal UI for kubectl)"
-K9S_VERSION="${K9S_VERSION:-v0.32.7}"
+step "installing k9s ${K9S_VERSION}"
 curl -fsSL "https://github.com/derailed/k9s/releases/download/${K9S_VERSION}/k9s_Linux_amd64.tar.gz" \
   | tar -xz -C /tmp k9s
 install -m 0755 /tmp/k9s /usr/local/bin/k9s
 rm -f /tmp/k9s
 
-# ----- 4. kubeadm/kubelet/kubectl for Day 4 (host-side, kubelet OFF) -------
+# ----- 4. kubeadm/kubelet/kubectl deb packages (for Day 4) -----------------
+# We install these but do NOT configure them. Trainees set up swap/sysctls/
+# kernel modules and start the kubelet themselves in Day 4 Lab 7.
 
-step "installing kubeadm/kubelet/kubectl (Day 4 use only)"
+step "installing kubeadm/kubelet/kubectl deb packages"
 mkdir -p /etc/apt/keyrings
 curl -fsSL "https://pkgs.k8s.io/core:/stable:/v${K8S_MINOR}/deb/Release.key" \
   | gpg --dearmor --yes -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
@@ -136,36 +119,7 @@ apt-get -y install \
   etcd-client
 apt-mark hold kubelet kubeadm kubectl
 
-# kubelet OFF until Day 4 — kind brings its own kubelets inside its containers
-systemctl disable --now kubelet
-
-# ----- 5. kubeadm host prereqs ---------------------------------------------
-
-step "kubeadm prerequisites (swap off, sysctls, kernel modules)"
-swapoff -a
-sed -i '/ swap / s/^/#/' /etc/fstab
-
-cat >/etc/modules-load.d/k8s.conf <<EOF
-overlay
-br_netfilter
-EOF
-modprobe overlay
-modprobe br_netfilter
-
-cat >/etc/sysctl.d/k8s.conf <<EOF
-net.bridge.bridge-nf-call-iptables  = 1
-net.bridge.bridge-nf-call-ip6tables = 1
-net.ipv4.ip_forward                 = 1
-EOF
-sysctl --system >/dev/null
-
-# containerd config — Day 4 kubeadm uses it directly
-mkdir -p /etc/containerd
-containerd config default >/etc/containerd/config.toml
-sed -i 's/SystemdCgroup = false/SystemdCgroup = true/' /etc/containerd/config.toml
-systemctl restart containerd
-
-# ----- 6. VS Code -----------------------------------------------------------
+# ----- 5. VS Code -----------------------------------------------------------
 
 if [ "$INSTALL_VSCODE" = "1" ]; then
   step "installing VS Code (extensions install on first GUI launch)"
@@ -179,18 +133,18 @@ if [ "$INSTALL_VSCODE" = "1" ]; then
   apt-get -y install code
 fi
 
-# ----- 7. Pre-pull lab images (system docker cache) ------------------------
+# ----- 6. Pre-pull lab images (system docker cache) ------------------------
 
 step "pre-pulling lab images"
 for img in $KINDEST_IMAGE \
            nginx:1.27 nginx:1.28 nginxinc/nginx-unprivileged:1.27 \
            busybox:1.36 perl:5.34 hashicorp/http-echo \
-           curlimages/curl ghcr.io/rakyll/hey \
+           curlimages/curl \
            registry.k8s.io/metrics-server/metrics-server:v0.7.2; do
-  docker pull "$img" >/dev/null 2>&1 && echo "  ✓ $img" || echo "  ✗ $img (will pull on demand)"
+  docker pull "$img" >/dev/null 2>&1 && echo "  + $img" || echo "  - $img (will pull on demand)"
 done
 
-# ----- 8. Clone the course repo into the trainee's home -------------------
+# ----- 7. Clone the course repo into the trainee's home -------------------
 
 step "cloning course repo to $REPO_PATH"
 if [ -d "$REPO_PATH/.git" ]; then
@@ -200,7 +154,7 @@ else
 fi
 find "$REPO_PATH/infra" -name '*.sh' -exec chmod +x {} +
 
-# ----- 9. Shell hygiene — system-wide via /etc/profile.d ------------------
+# ----- 8. Shell hygiene — system-wide via /etc/profile.d ------------------
 
 step "installing system-wide shell aliases (/etc/profile.d/cka.sh)"
 cat >/etc/profile.d/cka.sh <<'EOF'
@@ -213,7 +167,7 @@ fi
 export do='--dry-run=client -o yaml'
 export now='--grace-period=0 --force'
 # Debian doesn't put /usr/sbin and /sbin in non-root PATH by default,
-# but swapon, lsmod, sysctl, ip, ss live there — we use them all week.
+# but swapon, lsmod, sysctl, ip, ss live there.
 case ":$PATH:" in
   *:/usr/sbin:*) ;;
   *) export PATH="$PATH:/usr/local/sbin:/usr/sbin:/sbin" ;;
@@ -225,7 +179,7 @@ fi
 EOF
 chmod 0644 /etc/profile.d/cka.sh
 
-# ----- 10. MOTD -------------------------------------------------------------
+# ----- 9. MOTD --------------------------------------------------------------
 
 cat >/etc/motd <<'EOF'
 
@@ -237,19 +191,9 @@ cat >/etc/motd <<'EOF'
   │                                                          │
   │  Day 1 first command:                                    │
   │      kind-bootstrap.sh && verify-cluster.sh              │
-  │                                                          │
-  │  VS Code extensions (Kubernetes, YAML, Docker, Vim)      │
-  │  will install on first GUI launch.                       │
   └──────────────────────────────────────────────────────────┘
 
 EOF
-
-# ----- 11. Snapshot prep ---------------------------------------------------
-
-step "cleanup for clean snapshot"
-apt-get clean
-rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
-truncate -s 0 /var/log/*.log 2>/dev/null || true
 
 step "DONE."
 echo
@@ -259,13 +203,21 @@ echo
 echo "═══════════════════════════════════════════════════════════════"
 echo "  IMPORTANT: log out and back in as $TRAINEE_USER before"
 echo "  doing anything else. The docker group membership and the"
-echo "  UTF-8 locale only take effect in a fresh login session."
+echo "  shell aliases only take effect in a fresh login session."
 echo "═══════════════════════════════════════════════════════════════"
 echo
 echo "  After re-login, validate:"
 echo "      verify-template.sh"
 echo
-echo "  Optional smoke-test before snapshot:"
+echo "  What this bake does NOT do (Lab 7 covers it on Day 4):"
+echo "    - swap off / fstab edit"
+echo "    - kernel modules (overlay, br_netfilter)"
+echo "    - kubeadm sysctls (bridge-nf-call-*, ip_forward)"
+echo "    - containerd cgroup driver = systemd"
+echo "    - kubelet enable/start"
+echo "  Trainees set these up themselves at the start of Lab 7."
+echo
+echo "  Smoke-test the kind path (Days 1-3) now:"
 echo "      kind-bootstrap.sh && verify-cluster.sh && kind delete cluster --name cka"
 echo
 echo "  Then snapshot this VM in dadesktop as 'master-baked' and replicate."

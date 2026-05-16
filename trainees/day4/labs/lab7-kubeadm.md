@@ -1,6 +1,6 @@
 # Lab 7 — Build a Cluster with kubeadm
 
-**Time:** 75 min
+**Time:** 90 min
 **Goal:** bootstrap a Kubernetes cluster from scratch using `kubeadm` directly
 on your Debian VM. Single-node cluster (control plane + workloads).
 **This is the big one** — the exam expects you to know kubeadm cold.
@@ -20,23 +20,93 @@ kind delete cluster --name cka
 docker ps                       # should show no kind containers
 ```
 
-Your Debian VM is now a clean Linux host with:
-- containerd installed and running (configured by the template)
-- kubelet/kubeadm/kubectl installed (held at v1.32)
-- swap disabled, sysctls set, kernel modules loaded (also from the template)
+Your Debian VM now has the kubeadm tooling installed but **none of the
+host-level prerequisites have been configured yet**. You're going to set
+them up by hand — exactly the work the CKA exam tests on the install-a-
+cluster section.
 
-## 7.2 Verify the prerequisites
+## 7.2 Set up the kubeadm prerequisites
+
+Each of these is an exam-checked item. Type them; don't copy-paste from the
+slides.
+
+### 7.2a Disable swap
+
+kubeadm's preflight refuses to run if swap is on. Disable for the current
+boot and persist across reboots:
 
 ```sh
-swapon --show          # must be empty
-lsmod | grep -E 'overlay|br_netfilter'
-sysctl net.ipv4.ip_forward net.bridge.bridge-nf-call-iptables
-systemctl is-active containerd     # active
-kubeadm version
-kubelet --version
+sudo swapoff -a
+sudo sed -i '/ swap / s/^/#/' /etc/fstab
+swapon --show          # should print nothing
 ```
 
-All should look good. If anything's off, raise your hand.
+### 7.2b Load kernel modules
+
+Two modules:
+- `overlay` — used by containerd's overlay filesystem
+- `br_netfilter` — lets iptables see bridged traffic (needed for Calico + kube-proxy)
+
+```sh
+cat <<EOF | sudo tee /etc/modules-load.d/k8s.conf
+overlay
+br_netfilter
+EOF
+sudo modprobe overlay
+sudo modprobe br_netfilter
+lsmod | grep -E '^overlay|^br_netfilter'   # both should appear
+```
+
+### 7.2c Set sysctls
+
+Three sysctls are required for Pod networking to work:
+
+```sh
+cat <<EOF | sudo tee /etc/sysctl.d/k8s.conf
+net.bridge.bridge-nf-call-iptables  = 1
+net.bridge.bridge-nf-call-ip6tables = 1
+net.ipv4.ip_forward                 = 1
+EOF
+sudo sysctl --system
+# verify:
+sysctl net.bridge.bridge-nf-call-iptables \
+       net.bridge.bridge-nf-call-ip6tables \
+       net.ipv4.ip_forward
+```
+
+### 7.2d Configure containerd's cgroup driver
+
+kubelet defaults to the `systemd` cgroup driver. Containerd's default config
+uses `cgroupfs`. Mismatch causes confusing errors. Align containerd:
+
+```sh
+sudo mkdir -p /etc/containerd
+sudo containerd config default | sudo tee /etc/containerd/config.toml >/dev/null
+sudo sed -i 's/SystemdCgroup = false/SystemdCgroup = true/' /etc/containerd/config.toml
+sudo systemctl restart containerd
+sudo systemctl is-active containerd     # active
+```
+
+### 7.2e Enable kubelet
+
+The kubelet was installed by apt but isn't running yet. `kubeadm init` will
+configure it and (re)start it, but enabling it now means kubelet will come
+back automatically after reboots:
+
+```sh
+sudo systemctl enable kubelet
+```
+
+### 7.2f Sanity check
+
+```sh
+kubeadm version
+kubelet --version
+sudo crictl --runtime-endpoint unix:///run/containerd/containerd.sock version
+```
+
+If any step above failed, fix it before continuing. **These are exam
+questions in disguise.**
 
 ## 7.3 What kubeadm is going to do
 

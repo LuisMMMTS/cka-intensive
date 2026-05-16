@@ -81,49 +81,15 @@ check_version kubectl '1\.32' 'kubectl version --client -o yaml 2>/dev/null | aw
 check_version helm    'v3\.16' 'helm version --short 2>/dev/null'
 check_version kind    'v0\.25' 'kind version 2>/dev/null'
 
-# Day-4 kubeadm tooling
+# Day-4 kubeadm tooling — packages installed by the bake but NOT configured.
+# The kubeadm prereqs (swap, sysctls, modules, containerd cgroup driver) are
+# set up by the trainee themselves at the start of Lab 7. We only check that
+# the binaries exist here.
 check_version kubeadm '1\.32' 'kubeadm version -o short 2>/dev/null'
 check_cmd kubelet
 check_cmd etcdctl    "etcdctl (etcd-client)"
-if systemctl is-enabled kubelet 2>/dev/null | grep -qx disabled; then
-  pass "kubelet is disabled (correct — kind brings its own; kubeadm uses it on Day 4)"
-else
-  fail "kubelet should be DISABLED until Day 4 (got: $(systemctl is-enabled kubelet))"
-fi
 
-# ----- 5. kubeadm host prereqs ---------------------------------------------
-
-log "checking kubeadm host prereqs"
-if [ -z "$(swapon --show)" ]; then
-  pass "swap is off"
-else
-  fail "swap is ON"; swapon --show
-fi
-for mod in overlay br_netfilter; do
-  if lsmod | grep -q "^$mod"; then
-    pass "kernel module $mod loaded"
-  else
-    fail "kernel module $mod not loaded"
-  fi
-done
-for s in net.bridge.bridge-nf-call-iptables=1 \
-         net.bridge.bridge-nf-call-ip6tables=1 \
-         net.ipv4.ip_forward=1; do
-  key=${s%=*} want=${s#*=}
-  got=$(sysctl -n "$key" 2>/dev/null || echo "?")
-  if [ "$got" = "$want" ]; then
-    pass "sysctl $key=$got"
-  else
-    fail "sysctl $key=$got (want $want)"
-  fi
-done
-if grep -q 'SystemdCgroup = true' /etc/containerd/config.toml 2>/dev/null; then
-  pass "containerd SystemdCgroup=true"
-else
-  fail "containerd SystemdCgroup is not true (kubeadm will reject)"
-fi
-
-# ----- 6. VS Code (optional, but expected) ---------------------------------
+# ----- 5. VS Code (optional, but expected) ---------------------------------
 
 log "checking VS Code"
 if command -v code >/dev/null 2>&1; then
@@ -132,7 +98,14 @@ else
   fail "code (VS Code) NOT installed — set INSTALL_VSCODE=1 when running template-bake.sh"
 fi
 
-# ----- 7. repo + shell hygiene ---------------------------------------------
+log "checking k9s"
+if command -v k9s >/dev/null 2>&1; then
+  pass "k9s installed ($(k9s version --short 2>/dev/null | head -1))"
+else
+  fail "k9s NOT installed"
+fi
+
+# ----- 6. repo + shell hygiene ---------------------------------------------
 
 log "checking course repo + shell"
 REPO="$HOME/cka-intensive"
