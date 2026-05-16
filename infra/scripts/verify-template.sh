@@ -7,6 +7,10 @@
 
 set -uo pipefail
 
+# Ensure /usr/sbin and /sbin are reachable (Debian doesn't add them to
+# regular users' PATH by default — but swapon/lsmod/sysctl live there).
+export PATH="/usr/local/sbin:/usr/sbin:/sbin:$PATH"
+
 PASS=0
 FAIL=0
 

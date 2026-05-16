@@ -64,7 +64,18 @@ apt-get -y install \
   curl ca-certificates gnupg lsb-release \
   jq git tree vim less tmux htop \
   bind9-dnsutils netcat-openbsd iproute2 procps \
-  bash-completion apt-transport-https
+  bash-completion apt-transport-https \
+  locales
+
+step "setting UTF-8 locale (so ✓ / ✗ in script output renders correctly)"
+sed -i 's/# *en_US.UTF-8 UTF-8/en_US.UTF-8 UTF-8/' /etc/locale.gen
+locale-gen en_US.UTF-8 >/dev/null
+update-locale LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8
+# Also write defaults so even non-login shells get UTF-8
+cat >/etc/default/locale <<'EOF'
+LANG=en_US.UTF-8
+LC_ALL=en_US.UTF-8
+EOF
 
 # ----- 2. Docker Engine -----------------------------------------------------
 
@@ -99,6 +110,13 @@ step "installing kind ${KIND_VERSION}"
 curl -fsSLo /usr/local/bin/kind \
   "https://kind.sigs.k8s.io/dl/${KIND_VERSION}/kind-linux-amd64"
 chmod +x /usr/local/bin/kind
+
+step "installing k9s (terminal UI for kubectl)"
+K9S_VERSION="${K9S_VERSION:-v0.32.7}"
+curl -fsSL "https://github.com/derailed/k9s/releases/download/${K9S_VERSION}/k9s_Linux_amd64.tar.gz" \
+  | tar -xz -C /tmp k9s
+install -m 0755 /tmp/k9s /usr/local/bin/k9s
+rm -f /tmp/k9s
 
 # ----- 4. kubeadm/kubelet/kubectl for Day 4 (host-side, kubelet OFF) -------
 
@@ -194,6 +212,12 @@ if [ -n "${BASH_VERSION:-}" ]; then
 fi
 export do='--dry-run=client -o yaml'
 export now='--grace-period=0 --force'
+# Debian doesn't put /usr/sbin and /sbin in non-root PATH by default,
+# but swapon, lsmod, sysctl, ip, ss live there — we use them all week.
+case ":$PATH:" in
+  *:/usr/sbin:*) ;;
+  *) export PATH="$PATH:/usr/local/sbin:/usr/sbin:/sbin" ;;
+esac
 # Add the per-user repo's scripts/ dir to PATH if it exists
 if [ -d "$HOME/cka-intensive/infra/scripts" ]; then
   export PATH="$PATH:$HOME/cka-intensive/infra/scripts"
@@ -229,13 +253,19 @@ truncate -s 0 /var/log/*.log 2>/dev/null || true
 
 step "DONE."
 echo
-echo "User configured: $TRAINEE_USER"
-echo "Repo at:         $REPO_PATH"
+echo "  User configured: $TRAINEE_USER"
+echo "  Repo at:         $REPO_PATH"
 echo
-echo "Validate as $TRAINEE_USER:"
-echo "  sudo -iu $TRAINEE_USER verify-template.sh"
+echo "═══════════════════════════════════════════════════════════════"
+echo "  IMPORTANT: log out and back in as $TRAINEE_USER before"
+echo "  doing anything else. The docker group membership and the"
+echo "  UTF-8 locale only take effect in a fresh login session."
+echo "═══════════════════════════════════════════════════════════════"
 echo
-echo "Optional smoke-test before snapshot:"
-echo "  sudo -iu $TRAINEE_USER bash -c 'kind-bootstrap.sh && verify-cluster.sh && kind delete cluster --name cka'"
+echo "  After re-login, validate:"
+echo "      verify-template.sh"
 echo
-echo "Then snapshot this VM in dadesktop as 'master-baked' and replicate."
+echo "  Optional smoke-test before snapshot:"
+echo "      kind-bootstrap.sh && verify-cluster.sh && kind delete cluster --name cka"
+echo
+echo "  Then snapshot this VM in dadesktop as 'master-baked' and replicate."

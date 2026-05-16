@@ -86,7 +86,10 @@ if kind get clusters | grep -qx "$CLUSTER"; then
   log "cluster '$CLUSTER' already exists, skipping create"
 else
   log "creating 3-node kind cluster (this takes ~90s)"
-  kind create cluster --config "$KIND_CONFIG" --wait 120s
+  # No --wait flag: kindnet is disabled, so the control plane stays NotReady
+  # until Calico installs in the next step. Waiting here just times out with
+  # a misleading WARNING. We wait properly after CNI install.
+  kind create cluster --config "$KIND_CONFIG"
 fi
 
 # kind already wrote kubeconfig to ~/.kube/config
