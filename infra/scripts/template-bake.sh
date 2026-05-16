@@ -22,11 +22,11 @@ set -euo pipefail
 COURSE_REPO="${COURSE_REPO:-https://github.com/LuisMMMTS/cka-intensive.git}"
 K8S_VERSION="${K8S_VERSION:-1.32.0}"
 K8S_MINOR="${K8S_MINOR:-1.32}"
-HELM_VERSION="${HELM_VERSION:-v3.16.4}"
-KIND_VERSION="${KIND_VERSION:-v0.25.0}"
+KIND_VERSION="${KIND_VERSION:-v0.31.0}"
 K9S_VERSION="${K9S_VERSION:-v0.32.7}"
 KINDEST_IMAGE="${KINDEST_IMAGE:-kindest/node:v1.32.0}"
 INSTALL_VSCODE="${INSTALL_VSCODE:-1}"
+# helm comes from Debian's apt repo (no version pinning needed)
 
 step() { printf '\n\033[36m==>\033[0m %s\n' "$*"; }
 die()  { printf '\033[31m[ERROR]\033[0m %s\n' "$*" >&2; exit 1; }
@@ -55,61 +55,65 @@ step "installing base packages"
 apt-get update
 apt-get -y install \
   curl ca-certificates gnupg lsb-release \
-  jq git tree vim less tmux htop \
+  jq git tree vim nano less tmux htop \
   bind9-dnsutils netcat-openbsd iproute2 procps \
-  bash-completion apt-transport-https
+  bash-completion apt-transport-https \
+  helm
 
-# ----- 2. Docker Engine -----------------------------------------------------
+# ----- 2. Docker Engine (DEB822 .sources format) ---------------------------
 
 step "installing Docker"
 install -m 0755 -d /etc/apt/keyrings
 curl -fsSL https://download.docker.com/linux/debian/gpg \
-  | gpg --dearmor --yes -o /etc/apt/keyrings/docker.gpg
-chmod a+r /etc/apt/keyrings/docker.gpg
-echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] \
-  https://download.docker.com/linux/debian $(lsb_release -cs) stable" \
-  > /etc/apt/sources.list.d/docker.list
+  -o /etc/apt/keyrings/docker.asc
+chmod a+r /etc/apt/keyrings/docker.asc
+cat >/etc/apt/sources.list.d/docker.sources <<EOF
+Types: deb
+URIs: https://download.docker.com/linux/debian
+Suites: $(. /etc/os-release && echo "$VERSION_CODENAME")
+Components: stable
+Architectures: $(dpkg --print-architecture)
+Signed-By: /etc/apt/keyrings/docker.asc
+EOF
 apt-get update
-apt-get -y install docker-ce docker-ce-cli containerd.io docker-buildx-plugin
+apt-get -y install docker-ce docker-ce-cli containerd.io \
+  docker-buildx-plugin docker-compose-plugin
 systemctl enable --now docker
 groupadd -f docker
 usermod -aG docker "$TRAINEE_USER"
 
-# ----- 3. kubectl + helm + kind + k9s (binaries) ---------------------------
+# ----- 3. kubectl + kind (binaries; helm came via apt above) ---------------
 
 step "installing kubectl ${K8S_VERSION}"
 curl -fsSLo /usr/local/bin/kubectl \
   "https://dl.k8s.io/release/v${K8S_VERSION}/bin/linux/amd64/kubectl"
 chmod +x /usr/local/bin/kubectl
 
-step "installing helm ${HELM_VERSION}"
-curl -fsSL "https://get.helm.sh/helm-${HELM_VERSION}-linux-amd64.tar.gz" \
-  | tar -xz -C /tmp
-install -m 0755 /tmp/linux-amd64/helm /usr/local/bin/helm
-rm -rf /tmp/linux-amd64
-
 step "installing kind ${KIND_VERSION}"
 curl -fsSLo /usr/local/bin/kind \
   "https://kind.sigs.k8s.io/dl/${KIND_VERSION}/kind-linux-amd64"
 chmod +x /usr/local/bin/kind
 
-step "installing k9s ${K9S_VERSION}"
-curl -fsSL "https://github.com/derailed/k9s/releases/download/${K9S_VERSION}/k9s_Linux_amd64.tar.gz" \
-  | tar -xz -C /tmp k9s
-install -m 0755 /tmp/k9s /usr/local/bin/k9s
-rm -f /tmp/k9s
+step "installing k9s ${K9S_VERSION} (apt-tracked .deb)"
+curl -fsSLo /tmp/k9s.deb \
+  "https://github.com/derailed/k9s/releases/download/${K9S_VERSION}/k9s_linux_amd64.deb"
+apt-get -y install /tmp/k9s.deb
+rm -f /tmp/k9s.deb
 
-# ----- 4. kubeadm/kubelet/kubectl deb packages (for Day 4) -----------------
+# ----- 4. kubeadm/kubelet/kubectl deb packages (DEB822 format) -------------
 # We install these but do NOT configure them. Trainees set up swap/sysctls/
 # kernel modules and start the kubelet themselves in Day 4 Lab 7.
 
 step "installing kubeadm/kubelet/kubectl deb packages"
-mkdir -p /etc/apt/keyrings
 curl -fsSL "https://pkgs.k8s.io/core:/stable:/v${K8S_MINOR}/deb/Release.key" \
   | gpg --dearmor --yes -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
-echo "deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] \
-  https://pkgs.k8s.io/core:/stable:/v${K8S_MINOR}/deb/ /" \
-  > /etc/apt/sources.list.d/kubernetes.list
+chmod 644 /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+cat >/etc/apt/sources.list.d/kubernetes.sources <<EOF
+Types: deb
+URIs: https://pkgs.k8s.io/core:/stable:/v${K8S_MINOR}/deb/
+Suites: /
+Signed-By: /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+EOF
 apt-get update
 KUBE_PKG_VER=$(apt-cache madison kubelet | awk -v v="$K8S_VERSION" \
   '$3 ~ "^"v"-" {print $3; exit}')
@@ -119,16 +123,21 @@ apt-get -y install \
   etcd-client
 apt-mark hold kubelet kubeadm kubectl
 
-# ----- 5. VS Code -----------------------------------------------------------
+# ----- 5. VS Code (DEB822 format) ------------------------------------------
 
 if [ "$INSTALL_VSCODE" = "1" ]; then
   step "installing VS Code (extensions install on first GUI launch)"
-  install -m 0755 -d /etc/apt/keyrings
   curl -fsSL https://packages.microsoft.com/keys/microsoft.asc \
     | gpg --dearmor --yes -o /etc/apt/keyrings/packages.microsoft.gpg
-  echo "deb [arch=amd64,arm64,armhf signed-by=/etc/apt/keyrings/packages.microsoft.gpg] \
-    https://packages.microsoft.com/repos/code stable main" \
-    > /etc/apt/sources.list.d/vscode.list
+  chmod 644 /etc/apt/keyrings/packages.microsoft.gpg
+  cat >/etc/apt/sources.list.d/vscode.sources <<EOF
+Types: deb
+URIs: https://packages.microsoft.com/repos/code
+Suites: stable
+Components: main
+Architectures: amd64,arm64,armhf
+Signed-By: /etc/apt/keyrings/packages.microsoft.gpg
+EOF
   apt-get update
   apt-get -y install code
 fi
