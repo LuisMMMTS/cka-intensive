@@ -136,7 +136,7 @@ fi
 # ----- 8. cached lab images ------------------------------------------------
 
 log "checking pre-pulled lab images"
-EXPECTED=(nginx:1.27 busybox:1.36 kindest/node:v1.36.1)
+EXPECTED=(nginx:1.27 busybox:1.36 kindest/node:v1.35.1)
 for img in "${EXPECTED[@]}"; do
   if docker image inspect "$img" >/dev/null 2>&1; then
     pass "image cached: $img"

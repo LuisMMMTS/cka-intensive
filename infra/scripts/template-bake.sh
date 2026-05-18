@@ -31,7 +31,9 @@ K8S_VERSION="${K8S_VERSION:-1.36.1}"
 K8S_MINOR="${K8S_MINOR:-1.36}"
 KIND_VERSION="${KIND_VERSION:-v0.31.0}"
 K9S_VERSION="${K9S_VERSION:-v0.32.7}"
-KINDEST_IMAGE="${KINDEST_IMAGE:-kindest/node:v1.36.1}"
+# kindest/node lags k8s upstream — v1.36 not yet published on Docker Hub.
+# Day 1-3 kind clusters run v1.35.1; Day 4 kubeadm lab uses K8S_VERSION (1.36.1).
+KINDEST_IMAGE="${KINDEST_IMAGE:-kindest/node:v1.35.1}"
 HELM_VERSION="${HELM_VERSION:-v4.2.0}"
 INSTALL_VSCODE="${INSTALL_VSCODE:-1}"
 
