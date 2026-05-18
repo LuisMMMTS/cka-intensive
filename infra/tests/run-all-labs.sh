@@ -13,12 +13,25 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 # Order matters: lab N may depend on cluster state from lab N-1's setup phase.
 # Each lab script cleans up its own namespace, so re-running is safe.
 ALL_LABS=(
+  # Day 1
+  lab1-kubectl-basics
   lab2-workloads
+  lab2b-config-probes
+  # Day 2
+  lab3-services-ingress
+  lab3b-gateway-api
   lab4-networkpolicy
-  # Future tests get appended here as they're written:
-  # lab1-kubectl-basics lab2b-config-probes lab3-services-ingress
-  # lab3b-gateway-api lab5-storage lab5b-quotas lab6-scheduling
-  # lab6b-rbac lab6c-helm lab6d-kustomize lab6e-hpa lab6f-podsecurity
+  # Day 3
+  lab5-storage
+  lab5b-quotas
+  lab6-scheduling
+  lab6b-rbac
+  lab6c-helm
+  lab6d-kustomize
+  lab6e-hpa
+  lab6f-podsecurity
+  # Day 4 — lab7 covered by smoke-test-kubeadm.sh; lab8/8b need a kubeadm
+  # cluster; lab9 is intentional break/fix (separate framework).
 )
 
 # Filter by user-supplied prefixes if given.

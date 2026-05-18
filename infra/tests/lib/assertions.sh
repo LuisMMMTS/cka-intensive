@@ -148,36 +148,48 @@ assert_daemonset_on_every_node() {
 
 # ----- HTTP / NetworkPolicy assertions --------------------------------------
 
-# Run a curl against a Service from a (possibly labelled) pod. Pass if curl
-# succeeds. The curl runs inside an `sh -c "sleep 3 && curl ..."` wrapper so
-# Calico has time to program the pod's WorkloadEndpoint with its labels
-# before traffic flows — otherwise label-based NetworkPolicy rules may not
-# match a brand-new pod.
-# Usage: assert_curl_succeeds <target-url> [pod-labels] [pod-image]
-assert_curl_succeeds() {
-  local url="$1" labels="${2:-}" img="${3:-curlimages/curl}"
-  local pod_name="curl-$RANDOM"
-  local args=(--rm -i --restart=Never --image="$img" --timeout=60s)
+# Create a long-lived test pod (busybox sleeping forever) with optional
+# labels, then wait for it to be Ready AND give Calico a moment to program
+# its WorkloadEndpoint. After this, kubectl exec into the pod for HTTP
+# tests via assert_http_from_pod_*. Much more reliable than `kubectl run`
+# per-curl: no per-pod scheduling cost, no shell quoting gymnastics, and
+# the WorkloadEndpoint settle happens once.
+# Usage: create_test_pod <pod-name> [pod-labels]
+create_test_pod() {
+  local name="$1" labels="${2:-}"
+  local args=(--restart=Never --image=busybox:1.36 --command)
   [ -n "$labels" ] && args+=(--labels="$labels")
-  if kubectl -n "$TEST_NAMESPACE" run "$pod_name" "${args[@]}" --command -- \
-      sh -c "sleep 3 && curl -sf -m 10 '$url'" 2>/dev/null | grep -q .; then
-    pass "GET $url succeeds${labels:+ (from $labels)}"
+  kubectl -n "$TEST_NAMESPACE" run "$name" "${args[@]}" -- sleep 3600 >/dev/null
+  if kubectl -n "$TEST_NAMESPACE" wait --for=condition=Ready "pod/$name" --timeout=30s >/dev/null 2>&1; then
+    pass "test pod '$name' Ready${labels:+ (labels: $labels)}"
   else
-    fail "GET $url FAILED${labels:+ (from $labels)}"
+    fail "test pod '$name' did NOT become Ready"
+  fi
+  # WorkloadEndpoint programming for Calico is asynchronous; pause briefly
+  # so NetworkPolicy label-matching catches up. Cheap insurance.
+  sleep 3
+}
+
+# HTTP GET from inside an existing pod (created via create_test_pod).
+# Pass if request returns a body, fail otherwise.
+assert_http_from_pod_succeeds() {
+  local pod="$1" url="$2"
+  if kubectl -n "$TEST_NAMESPACE" exec "$pod" -- \
+      wget -qO- --timeout=8 "$url" 2>/dev/null | grep -q .; then
+    pass "GET $url succeeds (from pod/$pod)"
+  else
+    fail "GET $url FAILED (from pod/$pod)"
   fi
 }
 
-# Run a curl that we EXPECT to fail (NetworkPolicy denying access).
-assert_curl_fails() {
-  local url="$1" labels="${2:-}" img="${3:-curlimages/curl}"
-  local pod_name="curl-fail-$RANDOM"
-  local args=(--rm -i --restart=Never --image="$img" --timeout=30s)
-  [ -n "$labels" ] && args+=(--labels="$labels")
-  if kubectl -n "$TEST_NAMESPACE" run "$pod_name" "${args[@]}" --command -- \
-      sh -c "sleep 3 && curl -sf -m 5 '$url'" 2>/dev/null | grep -q .; then
-    fail "GET $url succeeded but should have been denied${labels:+ (from $labels)}"
+# HTTP GET that we EXPECT to fail (NetworkPolicy denying access).
+assert_http_from_pod_fails() {
+  local pod="$1" url="$2"
+  if kubectl -n "$TEST_NAMESPACE" exec "$pod" -- \
+      wget -qO- --timeout=5 "$url" 2>/dev/null | grep -q .; then
+    fail "GET $url succeeded but should have been denied (from pod/$pod)"
   else
-    pass "GET $url denied${labels:+ (from $labels)}"
+    pass "GET $url denied (from pod/$pod)"
   fi
 }
 
