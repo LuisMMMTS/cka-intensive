@@ -19,7 +19,7 @@ set -euo pipefail
 
 CLUSTER=cka
 K8S_NODE_IMAGE="kindest/node:v1.35.1"
-CALICO_VERSION="v3.28.0"
+CALICO_VERSION="v3.32.0"
 KIND_CONFIG="$(dirname "$0")/kind-config.yaml"
 
 REBUILD=false
