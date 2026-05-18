@@ -95,14 +95,10 @@ spec:
                 port: { number: 80 }
 EOF
 
-# Wait for Ingress to be reconciled (gets an address)
-for i in $(seq 1 30); do
-  addr=$(kubectl -n "$TEST_NAMESPACE" get ingress web -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null)
-  [ -n "$addr" ] && break
-  sleep 2
-done
-[ -n "${addr:-}" ] && pass "Ingress reconciled (loadBalancer addr present)" \
-  || fail "Ingress never got a loadBalancer address"
+# Don't assert on status.loadBalancer.ingress[].ip — kind's ingress-nginx
+# provider doesn't have a real cloud LB, so that field never populates.
+# The actual proof of correctness is the curl below.
+sleep 5   # give the controller a moment to reconcile the Ingress
 
 # Curl from the host through localhost (kind maps host 80 → control-plane)
 if curl -sfH 'Host: web.cka.local' -m 8 http://localhost 2>/dev/null | grep -q 'Welcome to nginx'; then

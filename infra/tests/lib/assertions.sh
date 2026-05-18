@@ -173,15 +173,19 @@ create_test_pod() {
 }
 
 # HTTP GET from inside an existing pod (created via create_test_pod).
-# Pass if request returns a body, fail otherwise.
+# Pass if request returns a body, fail otherwise. Retries once on transient
+# failure (small clusters occasionally need a beat for kube-proxy/CoreDNS).
 assert_http_from_pod_succeeds() {
   local pod="$1" url="$2"
-  if kubectl -n "$TEST_NAMESPACE" exec "$pod" -- \
-      wget -qO- --timeout=8 "$url" 2>/dev/null | grep -q .; then
-    pass "GET $url succeeds (from pod/$pod)"
-  else
-    fail "GET $url FAILED (from pod/$pod)"
-  fi
+  for attempt in 1 2; do
+    if kubectl -n "$TEST_NAMESPACE" exec "$pod" -- \
+        wget -qO- --timeout=8 "$url" 2>/dev/null | grep -q .; then
+      pass "GET $url succeeds (from pod/$pod)"
+      return
+    fi
+    [ "$attempt" = 1 ] && sleep 3
+  done
+  fail "GET $url FAILED after 2 attempts (from pod/$pod)"
 }
 
 # HTTP GET that we EXPECT to fail (NetworkPolicy denying access).
