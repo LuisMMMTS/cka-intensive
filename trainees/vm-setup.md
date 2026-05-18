@@ -37,8 +37,8 @@ The Debian VM should already have everything installed. Verify:
 ```sh
 docker version
 kubectl version --client    # 1.36.x
-helm version                # 3.16+
-kind version                # 0.25+
+helm version                # v4.2.0
+kind version                # v0.31+
 ```
 
 All four must succeed. If anything's missing, raise your hand — the template
@@ -79,7 +79,7 @@ errors, read the last 20 lines and ask for help.
 ```
 
 Runs 14 end-to-end checks: Docker, kind, all 3 node containers, apiserver,
-nodes Ready at v1.36, `kube-system` + `calico-system` pods healthy,
+nodes Ready at v1.35.1, `kube-system` + `calico-system` pods healthy,
 metrics-server scraping, an actual test pod becoming Ready, Service+DNS+CNI
 connectivity, and (critically) NetworkPolicy enforcement. Exit 0 if
 everything passes.

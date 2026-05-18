@@ -16,7 +16,7 @@ style: |
 # CKA Intensive
 ## Day 3 — Scheduling, Storage, RBAC, Helm, Kustomize, HPA
 
-Target: **Kubernetes v1.36**
+Cluster: kind on Kubernetes **v1.35.1** (you bootstrapped this in Lab 0)
 
 The longest day. Helm + Kustomize + HPA are new in the 2024 curriculum — do not skip.
 

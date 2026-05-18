@@ -16,7 +16,7 @@ style: |
 # CKA Intensive
 ## Day 4 — Cluster Lifecycle, CRDs, Troubleshooting, Mock Exam
 
-Target: **Kubernetes v1.36**
+Today's cluster: kubeadm on Kubernetes **v1.36.1** (you'll build it in Lab 7)
 
 The exam-prep day. We build a cluster, recover from disasters, learn the troubleshooting playbook, then sit a mock.
 

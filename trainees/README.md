@@ -2,7 +2,7 @@
 
 Welcome. This repo is your handbook for the course and your reference afterwards.
 
-**Target Kubernetes version:** v1.36 (current stable as of May 2026).
+**Target Kubernetes version:** v1.36 (current stable as of May 2026). The kind cluster used in Days 1-3 runs **v1.35.1** because kind hasn't published a v1.36 node image yet; the kubeadm cluster you build yourself on Day 4 runs **v1.36.1**.
 
 ## How the course runs
 

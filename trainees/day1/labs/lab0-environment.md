@@ -41,7 +41,7 @@ You'll see progress like:
 
 ```
 [bootstrap] creating 3-node kind cluster (this takes ~90s)
-[bootstrap] installing Calico v3.28.0 (this takes ~2 min)
+[bootstrap] installing Calico v3.32.0 (this takes ~2 min)
 [bootstrap] waiting for Calico to be ready (up to 3 min)
 [bootstrap] waiting for all nodes Ready
 [bootstrap] installing metrics-server (needed for Day 3 HPA)

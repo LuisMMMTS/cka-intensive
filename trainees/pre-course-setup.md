@@ -89,8 +89,8 @@ following will all work out of the box:
 ```sh
 docker version                # Docker Engine ≥ 24
 kubectl version --client      # 1.36.x
-helm version                  # 3.16+
-kind version                  # 0.25+
+helm version                  # v4.2.0
+kind version                  # v0.31+
 
 # Course repo cloned at ~/cka-intensive (or your home dir; trainer will say)
 ls ~/cka-intensive

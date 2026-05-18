@@ -16,7 +16,7 @@ style: |
 # CKA Intensive
 ## Day 2 — Services, DNS, Ingress, Gateway API, NetworkPolicy
 
-Target: **Kubernetes v1.36**
+Cluster: kind on Kubernetes **v1.35.1** (you bootstrapped this in Lab 0)
 
 ---
 

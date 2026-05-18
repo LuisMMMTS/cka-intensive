@@ -17,7 +17,7 @@ style: |
 ## Day 1 — Foundations, Architecture, Workloads, Config
 
 Luis Torres
-4-day intensive · target: **Kubernetes v1.36**
+4-day intensive · **target: Kubernetes v1.36** (kind labs run on v1.35.1 — kind hasn't shipped a v1.36 node image yet; kubeadm lab on Day 4 runs v1.36.1)
 
 ---
 
@@ -636,7 +636,7 @@ k api-resources --namespaced=false
 
 → `trainees/day1/labs/lab0-environment.md`
 
-**60 min.** Verify Docker, kubectl 1.36, kind, helm 3, vim. Bring up the 3-node kind cluster on v1.36. Verify `kubectl get nodes` shows 3 Ready nodes.
+**60 min.** Verify Docker, kubectl 1.36.1, kind 0.31, helm v4.2.0, vim. Bring up the 3-node kind cluster on v1.35.1 (kind's latest node image). Verify `kubectl get nodes` shows 3 Ready nodes.
 
 If you can't get past Lab 0 by the end of the slot, tell the trainer — we don't continue with a broken setup.
 
@@ -1260,7 +1260,7 @@ Production rule of thumb: set both. Guaranteed for latency-sensitive, Burstable 
 You can now:
 
 - Articulate what every control-plane and node component does
-- Bring up a 3-node cluster on **v1.36** with kind
+- Bring up a 3-node cluster on **v1.35.1** with kind (kind's latest node image)
 - Use kubectl fluently (completion + `$do` + `$now`)
 - Generate YAML for every workload type imperatively, then edit it
 - Inject config via ConfigMap and Secret, three ways
