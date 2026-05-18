@@ -64,10 +64,10 @@ else
   kubectl get nodes 2>/dev/null || true
 fi
 
-if kubectl get nodes -o jsonpath='{.items[*].status.nodeInfo.kubeletVersion}' 2>/dev/null | grep -q 'v1.36'; then
-  pass "all nodes at v1.36"
+if kubectl get nodes -o jsonpath='{.items[*].status.nodeInfo.kubeletVersion}' 2>/dev/null | grep -q 'v1.35'; then
+  pass "all nodes at v1.35"
 else
-  fail "nodes not all at v1.36"
+  fail "nodes not all at v1.35"
   kubectl get nodes -o wide 2>/dev/null || true
 fi
 
@@ -125,12 +125,24 @@ fi
 
 # Service + DNS + CNI + kube-proxy all in one test
 kubectl -n "$NS" expose pod smoke --port=80 >/dev/null 2>&1
+SVC_IP=$(kubectl -n "$NS" get svc smoke -o jsonpath='{.spec.clusterIP}' 2>/dev/null)
 if kubectl -n "$NS" run curl-test --rm -i --restart=Never \
     --image=curlimages/curl --timeout=30s -- \
     curl -sf -m 5 "http://smoke.$NS.svc.cluster.local" 2>/dev/null | grep -q 'Welcome to nginx'; then
   pass "Service DNS + connectivity (CNI + kube-proxy + CoreDNS all working)"
 else
-  fail "Service connectivity test failed (CNI, kube-proxy, or CoreDNS broken)"
+  fail "Service connectivity test failed — diagnosing:"
+  echo "  --- pods and endpoints ---"
+  kubectl -n "$NS" get pods,svc,endpoints 2>/dev/null | sed 's/^/    /'
+  echo "  --- DNS resolution test (CoreDNS) ---"
+  kubectl -n "$NS" run dns-test --rm -i --restart=Never --image=busybox:1.36 --timeout=15s -- \
+    nslookup "smoke.$NS.svc.cluster.local" 2>&1 | sed 's/^/    /' | head -10
+  echo "  --- direct ClusterIP test (skips DNS, tests kube-proxy + CNI) ---"
+  kubectl -n "$NS" run ip-test --rm -i --restart=Never --image=curlimages/curl --timeout=15s -- \
+    curl -v -m 5 "http://${SVC_IP}" 2>&1 | sed 's/^/    /' | tail -10
+  echo "  --- CoreDNS + kube-proxy pod status ---"
+  kubectl -n kube-system get pods -l k8s-app=kube-dns -o wide 2>/dev/null | sed 's/^/    /'
+  kubectl -n kube-system get pods -l k8s-app=kube-proxy -o wide 2>/dev/null | sed 's/^/    /'
 fi
 
 # ----- NetworkPolicy enforcement check --------------------------------------
