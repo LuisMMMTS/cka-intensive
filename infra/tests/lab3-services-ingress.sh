@@ -98,13 +98,34 @@ EOF
 # Don't assert on status.loadBalancer.ingress[].ip — kind's ingress-nginx
 # provider doesn't have a real cloud LB, so that field never populates.
 # The actual proof of correctness is the curl below.
-sleep 5   # give the controller a moment to reconcile the Ingress
+#
+# The controller needs a few seconds to reconcile the Ingress object into
+# its nginx config (separate from the admission-webhook readiness we
+# already waited for). Retry the curl with a longer wait window.
+log "curling Ingress through localhost (with retries while controller reconciles)"
+ingress_ok=0
+for attempt in $(seq 1 8); do
+  if curl -sfH 'Host: web.cka.local' -m 5 http://localhost 2>/dev/null | grep -q 'Welcome to nginx'; then
+    ingress_ok=1; break
+  fi
+  sleep 3
+done
 
-# Curl from the host through localhost (kind maps host 80 → control-plane)
-if curl -sfH 'Host: web.cka.local' -m 8 http://localhost 2>/dev/null | grep -q 'Welcome to nginx'; then
-  pass "Ingress routes web.cka.local → nginx welcome page"
+if [ "$ingress_ok" = 1 ]; then
+  pass "Ingress routes web.cka.local → nginx welcome page (attempt $attempt)"
 else
-  fail "Ingress did NOT route correctly (Host: web.cka.local → http://localhost)"
+  fail "Ingress did NOT route correctly after ~25s — diagnosing:"
+  echo "  --- curl response code ---"
+  code=$(curl -sH 'Host: web.cka.local' -m 5 -o /dev/null -w '%{http_code}' http://localhost 2>/dev/null || echo "(no response)")
+  echo "    HTTP $code"
+  echo "  --- Ingress object ---"
+  kubectl -n "$TEST_NAMESPACE" get ingress web -o wide 2>/dev/null | sed 's/^/    /'
+  echo "  --- IngressClass ---"
+  kubectl get ingressclass nginx -o jsonpath='{.spec.controller}{"\n"}' 2>/dev/null | sed 's/^/    /'
+  echo "  --- controller pod (node + status) ---"
+  kubectl -n ingress-nginx get pods -l app.kubernetes.io/component=controller -o wide 2>/dev/null | sed 's/^/    /'
+  echo "  --- Ingress events ---"
+  kubectl -n "$TEST_NAMESPACE" describe ingress web 2>/dev/null | tail -10 | sed 's/^/    /'
 fi
 
 finish
