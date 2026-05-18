@@ -291,9 +291,28 @@ Reject at any layer → request dies with the relevant HTTP code.
 
 ---
 
-## etcd
+## What is etcd?
 
-A distributed key/value store using **Raft** consensus.
+A **distributed, strongly-consistent key/value store**. Named after Unix's `/etc` (config) + `d` (distributed) — "distributed /etc."
+
+- Created at **CoreOS in 2013** for their Container Linux distro.
+- Donated to the **CNCF in 2018**; graduated project alongside Kubernetes.
+- Written in Go. Single binary. gRPC API.
+
+**Why not just use Postgres / Redis / a file?**
+
+| | etcd | Postgres / MySQL | Redis | ZooKeeper |
+|---|---|---|---|---|
+| Consistency | Strong (every read sees latest write) | Strong on primary, eventual on replicas | Async replication, can lose writes | Strong (ZAB protocol) |
+| API | Flat KV + watch | SQL, joins, indexes | KV + data structures | Hierarchical znodes |
+| Sweet spot | Small (GBs), critical config | Large datasets, rich queries | Speed, cache | Coordination |
+| Write ceiling | ~10K/sec | 100K+/sec | 1M+/sec | ~10K/sec |
+
+etcd is **optimized for cluster coordination**, not bulk storage. Every write goes through Raft consensus → durable + consistent, but slower than a single-node DB. Kubernetes uses it for cluster state (pods, services, configmaps) — never for metrics or logs.
+
+---
+
+## etcd in Kubernetes
 
 - All cluster state lives here. Lose etcd → lose the cluster.
 - Runs as a **static pod** on control-plane nodes by default (kubeadm)
@@ -323,6 +342,21 @@ Raft is a **leader-based consensus algorithm**. At any time:
 **Always odd numbers.** This is why control-plane HA recommendations are 3 or 5.
 
 If the leader dies, followers detect via missed heartbeats, hold an election, a new leader emerges. Writes pause briefly during election (~1-2s).
+
+---
+
+## Why Raft? (and not Paxos, or eventual consistency)
+
+**Paxos** (Lamport, 1989) was the original distributed consensus algorithm. Mathematically sound — and notoriously hard to understand. Google's Chubby and Spanner use Paxos variants. Most engineers who implement Paxos get it subtly wrong.
+
+**Raft** (Ongaro & Ousterhout, Stanford, 2014) was designed with one goal: **understandability**. Same correctness guarantees as Paxos, decomposed into three independent subproblems:
+1. **Leader election** — who's in charge right now?
+2. **Log replication** — leader streams entries to followers.
+3. **Safety** — once committed, an entry survives any future leader.
+
+Result: more correct implementations, easier to operate. **etcd, Consul, CockroachDB, TiKV, MongoDB (5.0+)** all use Raft.
+
+**Why not eventual consistency** (Dynamo / Cassandra style)? Kubernetes can't tolerate split-brain on cluster state. Two apiservers each believing a different pod owns the same IP = data corruption. Strong consistency is non-negotiable for the control plane — and you pay for it with the quorum-write latency.
 
 ---
 
