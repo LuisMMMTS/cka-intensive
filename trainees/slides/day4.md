@@ -174,8 +174,8 @@ On control plane:
 ```sh
 k get nodes
 # NAME    STATUS   ROLES           AGE   VERSION
-# cp-1    Ready    control-plane   5m    v1.36.0
-# w-1     Ready    <none>          1m    v1.36.0
+# cp-1    Ready    control-plane   5m    v1.36.1
+# w-1     Ready    <none>          1m    v1.36.1
 ```
 
 To set worker role label cosmetically:
@@ -492,7 +492,7 @@ The exam tests kubeadm because it tests the **full surface**. In your day job yo
 sudo -i
 sudo systemctl disable kubelet               # don't conflict with kubeadm's kubelet
 sudo systemctl stop kubelet
-curl -sfL https://get.k3s.io | INSTALL_K3S_VERSION=v1.36.0+k3s1 sh -
+curl -sfL https://get.k3s.io | INSTALL_K3S_VERSION=v1.36.1+k3s1 sh -
 sudo k3s kubectl get nodes
 sudo k3s kubectl get pods -A
 ```

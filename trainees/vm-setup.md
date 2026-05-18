@@ -59,7 +59,7 @@ cd ~/cka-intensive/infra/scripts     # or wherever the repo is
 What this does (≈ 2-3 min):
 
 1. Creates a 3-node kind cluster named `cka` running kubeadm-installed
-   Kubernetes **v1.36.0**.
+   Kubernetes **v1.36.1**.
 2. Disables kind's default CNI (kindnet) and installs **Calico** instead, so
    NetworkPolicy actually enforces (which Day 2 Lab 4 needs).
 3. Installs **metrics-server** with `--kubelet-insecure-tls` (needed for
@@ -94,9 +94,9 @@ Expected:
 
 ```
 NAME                 STATUS   ROLES           AGE    VERSION
-cka-control-plane    Ready    control-plane   3m     v1.36.0
-cka-worker           Ready    <none>          2m     v1.36.0
-cka-worker2          Ready    <none>          2m     v1.36.0
+cka-control-plane    Ready    control-plane   3m     v1.36.1
+cka-worker           Ready    <none>          2m     v1.36.1
+cka-worker2          Ready    <none>          2m     v1.36.1
 ```
 
 ---

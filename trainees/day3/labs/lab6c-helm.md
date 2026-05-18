@@ -3,9 +3,9 @@
 **Time:** 30 min
 **Goal:** install, override, upgrade, rollback a chart.
 
-Verify Helm 3 is installed:
+Verify Helm is installed:
 ```sh
-helm version    # v3.16+
+helm version    # v4.2.0
 ```
 
 ---

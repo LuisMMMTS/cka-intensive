@@ -20,13 +20,13 @@ set -euo pipefail
 # ----- config ---------------------------------------------------------------
 
 COURSE_REPO="${COURSE_REPO:-https://github.com/LuisMMMTS/cka-intensive.git}"
-K8S_VERSION="${K8S_VERSION:-1.36.0}"
+K8S_VERSION="${K8S_VERSION:-1.36.1}"
 K8S_MINOR="${K8S_MINOR:-1.36}"
 KIND_VERSION="${KIND_VERSION:-v0.31.0}"
 K9S_VERSION="${K9S_VERSION:-v0.32.7}"
-KINDEST_IMAGE="${KINDEST_IMAGE:-kindest/node:v1.36.0}"
+KINDEST_IMAGE="${KINDEST_IMAGE:-kindest/node:v1.36.1}"
+HELM_VERSION="${HELM_VERSION:-v4.2.0}"
 INSTALL_VSCODE="${INSTALL_VSCODE:-1}"
-# helm comes from Debian's apt repo (no version pinning needed)
 
 step() { printf '\n\033[36m==>\033[0m %s\n' "$*"; }
 die()  { printf '\033[31m[ERROR]\033[0m %s\n' "$*" >&2; exit 1; }
@@ -63,7 +63,6 @@ apt-get -y install \
   jq git tree vim nano less tmux htop \
   bind9-dnsutils netcat-openbsd iproute2 procps \
   bash-completion apt-transport-https \
-  helm \
   golang-go
 
 # ----- 2. Docker Engine (DEB822 .sources format) ---------------------------
@@ -88,12 +87,19 @@ systemctl enable --now docker
 groupadd -f docker
 usermod -aG docker "$TRAINEE_USER"
 
-# ----- 3. kubectl + kind (binaries; helm came via apt above) ---------------
+# ----- 3. kubectl + helm + kind (binaries) ---------------------------------
 
 step "installing kubectl ${K8S_VERSION}"
 curl -fsSLo /usr/local/bin/kubectl \
   "https://dl.k8s.io/release/v${K8S_VERSION}/bin/linux/amd64/kubectl"
 chmod +x /usr/local/bin/kubectl
+
+step "installing helm ${HELM_VERSION}"
+curl -fsSLo /tmp/helm.tar.gz \
+  "https://get.helm.sh/helm-${HELM_VERSION}-linux-amd64.tar.gz"
+tar -xzf /tmp/helm.tar.gz -C /tmp
+install -m 0755 /tmp/linux-amd64/helm /usr/local/bin/helm
+rm -rf /tmp/helm.tar.gz /tmp/linux-amd64
 
 step "installing kind ${KIND_VERSION} (via go install)"
 # Uses the just-installed golang-go to build kind from source.
