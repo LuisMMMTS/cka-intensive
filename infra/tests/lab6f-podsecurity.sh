@@ -70,11 +70,19 @@ spec:
       volumeMounts:
         - { name: cache, mountPath: /var/cache/nginx }
         - { name: run,   mountPath: /var/run }
+        - { name: tmp,   mountPath: /tmp }
   volumes:
     - { name: cache, emptyDir: {} }
     - { name: run,   emptyDir: {} }
+    - { name: tmp,   emptyDir: {} }
 EOF
-assert_pod_ready nginx 60s
+if ! kubectl -n "$NS1" wait --for=condition=Ready pod/nginx --timeout=60s >/dev/null 2>&1; then
+  fail "hardened nginx pod did NOT become Ready"
+  kubectl -n "$NS1" describe pod nginx 2>/dev/null | tail -20 | sed 's/^/    /'
+  kubectl -n "$NS1" logs pod/nginx 2>/dev/null | tail -10 | sed 's/^/    /'
+else
+  pass "hardened nginx pod Ready"
+fi
 
 # ----- 6f.4 baseline accepts plain nginx -----------------------------------
 

@@ -156,21 +156,42 @@ probes_set=$(kubectl -n "$TEST_NAMESPACE" get deploy web -o json | grep -c '"Pro
 [ "$probes_set" -ge 3 ] 2>/dev/null && pass "all 3 probes wired" \
   || pass "probes wired (deployment Available implies probes pass)"
 
-# Break readiness → endpoints should drain to empty
-log "breaking readiness path → expect endpoints to drain"
-kubectl -n "$TEST_NAMESPACE" patch deploy web --type=json -p='[
-  {"op":"replace","path":"/spec/template/spec/containers/0/readinessProbe/httpGet/path","value":"/this-does-not-exist"}
-]' >/dev/null
-# Wait for endpoints to drain (default readiness periodSeconds is 5, failureThreshold defaults to 3 → ~15s)
-sleep 25
-addrs=$(kubectl -n "$TEST_NAMESPACE" get endpoints web -o jsonpath='{.subsets[*].addresses[*].ip}' 2>/dev/null | tr ' ' '\n' | grep -c .)
-if [ "${addrs:-0}" -eq 0 ]; then
-  pass "endpoints/web drained (no addresses after readiness break)"
-else
-  fail "endpoints/web still has $addrs addresses (readiness drain failed)"
-fi
+# Endpoints-drain test: create a SEPARATE deployment with a broken readiness
+# probe from the start. (Patching an existing healthy deployment doesn't
+# drain endpoints — default RollingUpdate with replicas=3 has maxUnavailable=0
+# after rounding, so the old healthy ReplicaSet stays alive while the new
+# broken one fails to roll out. Lab2b's text claims otherwise; the lab has
+# been corrected to make the actual behavior pedagogically clear.)
+log "deploy 'broken-web' with intentionally-broken readiness probe"
+kubectl -n "$TEST_NAMESPACE" apply -f - >/dev/null <<EOF
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: broken-web }
+spec:
+  replicas: 3
+  selector: { matchLabels: { app: broken-web } }
+  template:
+    metadata: { labels: { app: broken-web } }
+    spec:
+      containers:
+        - name: nginx
+          image: nginx:1.27
+          ports: [{ containerPort: 80 }]
+          readinessProbe:
+            httpGet: { path: /this-does-not-exist, port: 80 }
+            periodSeconds: 3
+            failureThreshold: 2
+EOF
+kubectl -n "$TEST_NAMESPACE" expose deploy broken-web --port=80 >/dev/null
 
-# Roll back so we leave a sane state (cleanup will drop ns anyway)
-kubectl -n "$TEST_NAMESPACE" rollout undo deploy/web >/dev/null 2>&1 || true
+# Wait for pods to exist + fail readiness (3s period × 2 failures ≈ 10s),
+# then verify endpoints are empty (no Ready pods → no addresses).
+sleep 20
+addrs=$(kubectl -n "$TEST_NAMESPACE" get endpoints broken-web -o jsonpath='{.subsets[*].addresses[*].ip}' 2>/dev/null | tr ' ' '\n' | grep -c .)
+if [ "${addrs:-0}" -eq 0 ]; then
+  pass "endpoints/broken-web empty (readiness keeps pods out of rotation)"
+else
+  fail "endpoints/broken-web has $addrs addresses (readiness failure should drain endpoints)"
+fi
 
 finish

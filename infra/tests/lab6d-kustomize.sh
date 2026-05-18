@@ -122,12 +122,16 @@ envval=$(kubectl -n "$PROD_NS" get deploy web -o jsonpath='{.spec.template.spec.
 [ "$image" = "nginx:1.28" ] && pass "prod: image=nginx:1.28" || fail "prod: image=$image"
 [ "$envval" = "warn" ] && pass "prod: LOG_LEVEL=warn" || fail "prod: LOG_LEVEL=$envval"
 
-# configMapGenerator: ConfigMap exists with hash suffix
-cm=$(kubectl -n "$PROD_NS" get cm -o jsonpath='{.items[?(@.metadata.labels.app=="web")].metadata.name}')
-if echo "$cm" | grep -qE '^env-[a-z0-9]{10}'; then
+# configMapGenerator: ConfigMap exists with hash suffix. Filter by name
+# prefix (label-based filter is unreliable: commonLabels was deprecated in
+# newer kustomize and may not apply to generated resources).
+cm=$(kubectl -n "$PROD_NS" get cm -o jsonpath='{.items[*].metadata.name}' \
+     | tr ' ' '\n' | grep '^env-' | head -1)
+if echo "$cm" | grep -qE '^env-[a-z0-9]+$'; then
   pass "configMapGenerator created hash-suffixed ConfigMap ($cm)"
 else
-  fail "no hash-suffixed ConfigMap found (got: $cm)"
+  fail "no hash-suffixed ConfigMap found (got: '$cm')"
+  kubectl -n "$PROD_NS" get cm 2>/dev/null | sed 's/^/    /'
 fi
 
 finish

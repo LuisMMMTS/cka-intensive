@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
 # Smoke test for Lab 6b — RBAC.
-# Covers: ServiceAccount + Role + RoleBinding (namespaced), ClusterRole +
-# ClusterRoleBinding (cluster-wide), auth can-i verification, SA kubeconfig.
-# Cleans up cluster-scoped resources in trap (namespace teardown won't catch them).
+# Covers: SA + Role + RoleBinding (namespaced) + ClusterRole + ClusterRoleBinding
+# (cluster-wide). Verifies access by building an SA kubeconfig and actually
+# performing operations with it — avoids the impersonation + redacted-CA
+# gotchas of `auth can-i --as=` + `kubectl config view` without --raw.
+# Cleans up cluster-scoped resources in trap.
 
 set -uo pipefail
 
@@ -11,12 +13,13 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 # shellcheck source=lib/assertions.sh
 source "$SCRIPT_DIR/lib/assertions.sh"
 
-# Unique names so concurrent test runs don't collide on cluster-scoped objs
 SUFFIX=$RANDOM
 CR="node-viewer-$SUFFIX"
 CRB="dev-cluster-binding-$SUFFIX"
+KC=""
 
 lab6b_cleanup() {
+  [ -n "$KC" ] && rm -f "$KC"
   kubectl delete clusterrolebinding "$CRB" --wait=false --ignore-not-found=true >/dev/null 2>&1 || true
   kubectl delete clusterrole "$CR"          --wait=false --ignore-not-found=true >/dev/null 2>&1 || true
   cleanup_namespace
@@ -25,57 +28,37 @@ trap lab6b_cleanup EXIT
 
 setup_namespace lab6b-smoke
 
-# ----- 6b.1 namespaced read-only -------------------------------------------
+# ----- create SA + Role + RoleBinding (namespaced) -------------------------
 
 log "creating SA dev, Role pod-reader, RoleBinding"
 kubectl -n "$TEST_NAMESPACE" create sa dev >/dev/null
 kubectl -n "$TEST_NAMESPACE" create role pod-reader \
-  --verb=get,list,watch --resource=pods,pods/log >/dev/null
+  --verb=get --verb=list --verb=watch \
+  --resource=pods --resource=pods/log >/dev/null
 kubectl -n "$TEST_NAMESPACE" create rolebinding dev-pod-reader \
   --role=pod-reader --serviceaccount="$TEST_NAMESPACE:dev" >/dev/null
 
-SA="system:serviceaccount:$TEST_NAMESPACE:dev"
-
-# Allowed: list pods in own namespace
-if kubectl auth can-i list pods -n "$TEST_NAMESPACE" --as="$SA" 2>/dev/null | grep -qx yes; then
-  pass "SA can list pods in own namespace"
-else
-  fail "SA CANNOT list pods in own namespace"
-fi
-
-# Denied: delete pods
-if kubectl auth can-i delete pods -n "$TEST_NAMESPACE" --as="$SA" 2>/dev/null | grep -qx no; then
-  pass "SA correctly DENIED delete pods"
-else
-  fail "SA was allowed to delete pods (should be denied)"
-fi
-
-# Denied: list pods in different namespace
-if kubectl auth can-i list pods -n default --as="$SA" 2>/dev/null | grep -qx no; then
-  pass "SA correctly DENIED listing pods in default ns"
-else
-  fail "SA was allowed to list pods in default ns"
-fi
-
-# ----- 6b.3 cluster-wide read on nodes -------------------------------------
+# ----- create ClusterRole + CRB --------------------------------------------
 
 log "creating ClusterRole $CR + ClusterRoleBinding $CRB for SA"
-kubectl create clusterrole "$CR" --verb=get,list,watch --resource=nodes >/dev/null
+kubectl create clusterrole "$CR" --verb=get --verb=list --verb=watch \
+  --resource=nodes >/dev/null
 kubectl create clusterrolebinding "$CRB" \
   --clusterrole="$CR" --serviceaccount="$TEST_NAMESPACE:dev" >/dev/null
 
-if kubectl auth can-i list nodes --as="$SA" 2>/dev/null | grep -qx yes; then
-  pass "SA can list nodes (via ClusterRoleBinding)"
-else
-  fail "SA CANNOT list nodes despite ClusterRoleBinding"
+# ----- build a kubeconfig for the SA ---------------------------------------
+# NOTE: must use --raw to get the actual certificate-authority-data (it's
+# redacted by default in `kubectl config view`).
+
+log "building SA kubeconfig"
+TOKEN=$(kubectl -n "$TEST_NAMESPACE" create token dev --duration=10m)
+APISERVER=$(kubectl config view --minify --raw -o jsonpath='{.clusters[0].cluster.server}')
+CA=$(kubectl config view --minify --raw -o jsonpath='{.clusters[0].cluster.certificate-authority-data}')
+
+if [ -z "$TOKEN" ] || [ -z "$APISERVER" ] || [ -z "$CA" ]; then
+  fail "could not extract token/apiserver/CA from current kubeconfig"
+  finish; exit
 fi
-
-# ----- 6b.5 build kubeconfig for SA, exercise it ---------------------------
-
-log "build SA kubeconfig and verify access"
-TOKEN=$(kubectl -n "$TEST_NAMESPACE" create token dev --duration=10m 2>/dev/null)
-APISERVER=$(kubectl config view --minify -o jsonpath='{.clusters[0].cluster.server}')
-CA=$(kubectl config view --minify -o jsonpath='{.clusters[0].cluster.certificate-authority-data}')
 
 KC=$(mktemp)
 cat > "$KC" <<EOF
@@ -95,28 +78,53 @@ contexts:
 current-context: dev@cka
 EOF
 
-if KUBECONFIG="$KC" kubectl get pods >/dev/null 2>&1; then
-  pass "SA kubeconfig works for 'k get pods' in own namespace"
+# ----- verify the SA actually has the access we expect ---------------------
+
+# Helper: returns 0 if KUBECONFIG=$KC succeeds, 1 otherwise
+sa() { KUBECONFIG="$KC" kubectl "$@" 2>&1; }
+
+# ALLOWED: list pods in own namespace
+if sa get pods >/dev/null 2>&1; then
+  pass "SA can list pods in own namespace"
 else
-  fail "SA kubeconfig failed for 'k get pods'"
+  fail "SA CANNOT list pods in own namespace (RBAC: kubectl get pods failed)"
+  sa get pods 2>&1 | head -3 | sed 's/^/    /'
 fi
 
-if KUBECONFIG="$KC" kubectl get nodes >/dev/null 2>&1; then
-  pass "SA kubeconfig works for 'k get nodes' (ClusterRole)"
+# DENIED: delete a pod (any name; we want the RBAC denial, not a "not found")
+out=$(sa delete pod nonexistent-pod 2>&1 || true)
+if echo "$out" | grep -qi forbidden; then
+  pass "SA correctly DENIED delete pods (forbidden response)"
 else
-  fail "SA kubeconfig failed for 'k get nodes'"
-fi
-
-if KUBECONFIG="$KC" kubectl delete pod nonexistent 2>&1 | grep -qE 'forbidden|cannot delete|not found'; then
-  # Either Forbidden (good) or NotFound (the verb wasn't even checked because the pod doesn't exist).
-  # If it was Forbidden, RBAC blocked us. If NotFound, we got past RBAC — but we expect Forbidden.
-  out=$(KUBECONFIG="$KC" kubectl delete pod nonexistent 2>&1 || true)
-  if echo "$out" | grep -q forbidden; then
-    pass "SA correctly DENIED delete pods via kubeconfig"
+  # NotFound means RBAC allowed the verb, just no such pod — that's a fail
+  if echo "$out" | grep -qi 'not found'; then
+    fail "SA was allowed to delete pods (got NotFound, not Forbidden)"
   else
-    fail "SA was NOT denied delete pods: $out"
+    fail "unexpected response: $out"
   fi
 fi
 
-rm -f "$KC"
+# DENIED: list pods in default namespace
+if sa get pods -n default >/dev/null 2>&1; then
+  fail "SA was allowed to list pods in default ns (should be denied)"
+else
+  pass "SA correctly DENIED listing pods in default namespace"
+fi
+
+# ALLOWED: list nodes (via ClusterRoleBinding)
+if sa get nodes >/dev/null 2>&1; then
+  pass "SA can list nodes (via ClusterRoleBinding $CR)"
+else
+  fail "SA CANNOT list nodes despite ClusterRoleBinding"
+  sa get nodes 2>&1 | head -3 | sed 's/^/    /'
+fi
+
+# DENIED: create a deployment
+out=$(sa create deploy test --image=nginx:1.27 2>&1 || true)
+if echo "$out" | grep -qi forbidden; then
+  pass "SA correctly DENIED creating Deployments"
+else
+  fail "SA was allowed to create a Deployment (unexpected: $out)"
+fi
+
 finish

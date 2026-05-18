@@ -14,6 +14,8 @@ _ts()    { date +'%H:%M:%S'; }
 log()    { printf '\033[36m[%s %s]\033[0m %s\n' "$(_ts)" "$LAB" "$*"; }
 pass()   { printf '  \033[32m✓\033[0m %s\n' "$*"; PASS=$((PASS+1)); }
 fail()   { printf '  \033[31m✗\033[0m %s\n' "$*" >&2; FAIL=$((FAIL+1)); }
+# Soft warning — informational only. Does not count toward FAIL.
+warn()   { printf '  \033[33m!\033[0m %s\n' "$*"; }
 die()    { fail "$*"; cleanup_namespace; print_summary; exit 1; }
 
 # ----- namespace helpers ----------------------------------------------------

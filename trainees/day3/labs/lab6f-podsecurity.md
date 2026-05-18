@@ -79,10 +79,13 @@ spec:
       volumeMounts:
         - { name: cache, mountPath: /var/cache/nginx }
         - { name: run,   mountPath: /var/run }
+        - { name: tmp,   mountPath: /tmp }
   volumes:
     - name: cache
       emptyDir: {}
     - name: run
+      emptyDir: {}
+    - name: tmp
       emptyDir: {}
 ```
 
@@ -97,7 +100,9 @@ Three things you changed:
 
 1. **Image:** `nginx:1.27` runs as root; `nginxinc/nginx-unprivileged:1.27` doesn't.
 2. **securityContext:** added all four fields PSA's `restricted` checks for.
-3. **readOnlyRootFilesystem:** required `emptyDir` mounts for nginx's writable paths.
+3. **readOnlyRootFilesystem:** required `emptyDir` mounts for every path
+   nginx writes to (`/var/cache/nginx`, `/var/run`, `/tmp`). Forget one and
+   the pod CrashLoopBackOffs with `permission denied`.
 
 ---
 

@@ -65,16 +65,44 @@ Expose with a ClusterIP Service. From a debug pod, hit the service repeatedly.
 
 ## 2b.6 Break the readiness probe
 
-`k edit deploy web` and change the readiness probe's path to `/this-does-not-exist`. Watch:
+**Setup:** patching the existing 3-replica `web` deployment won't drain its
+endpoints — default RollingUpdate has `maxUnavailable=25%` which rounds
+down to 0 at 3 replicas, so the old healthy pods stay alive forever while
+the new broken pods fail to roll out. To see the actual readiness drain,
+create a fresh deployment with the broken probe from the start.
 
-```sh
-k get pods -l app=web -w
-k get endpoints web
+Apply:
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: broken-web }
+spec:
+  replicas: 3
+  selector: { matchLabels: { app: broken-web } }
+  template:
+    metadata: { labels: { app: broken-web } }
+    spec:
+      containers:
+        - name: nginx
+          image: nginx:1.27
+          ports: [{ containerPort: 80 }]
+          readinessProbe:
+            httpGet: { path: /this-does-not-exist, port: 80 }
+            periodSeconds: 3
+            failureThreshold: 2
 ```
 
-Pods should stay `Running` but `Ready: 0/1`. Endpoints should drain to empty.
+```sh
+k expose deploy broken-web --port=80
+k get pods -l app=broken-web -w     # pods are Running but never Ready
+k get endpoints broken-web          # no addresses — readiness keeps pods out
+```
 
-Roll back: `k rollout undo deploy/web`.
+**Lesson:** a Service only routes to pods that are `Ready`. If readiness
+fails, the pod stays in the cluster but the endpoint controller removes
+it from the service's address list. Traffic is shed gracefully without
+killing the pod.
 
 ## 2b.7 Break the liveness probe
 

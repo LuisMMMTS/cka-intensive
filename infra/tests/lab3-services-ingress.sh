@@ -63,6 +63,19 @@ else
   fi
 fi
 
+# The admission webhook is a separate Service that takes a few seconds to
+# wire up after the controller pod is Ready. Applying an Ingress before
+# the webhook is up fails with "connection refused".
+log "waiting for ingress-nginx admission webhook endpoints"
+for i in $(seq 1 30); do
+  if kubectl -n ingress-nginx get endpoints ingress-nginx-controller-admission \
+      -o jsonpath='{.subsets[0].addresses[0].ip}' 2>/dev/null | grep -q .; then
+    pass "admission webhook endpoints ready"
+    break
+  fi
+  sleep 2
+done
+
 log "Ingress object web.cka.local → svc/web"
 kubectl -n "$TEST_NAMESPACE" apply -f - >/dev/null <<EOF
 apiVersion: networking.k8s.io/v1

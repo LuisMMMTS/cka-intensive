@@ -25,7 +25,9 @@ assert_deployment_replicas web 3
 
 log "scaling web → 5"
 kubectl -n "$TEST_NAMESPACE" scale deploy web --replicas=5 >/dev/null
-kubectl -n "$TEST_NAMESPACE" wait --for=condition=Available deploy/web --timeout=90s >/dev/null
+# rollout status waits for ALL replicas Ready (Available only waits for
+# minAvailable = replicas - maxUnavailable, which rounds down to 4).
+kubectl -n "$TEST_NAMESPACE" rollout status deploy/web --timeout=120s >/dev/null
 assert_deployment_replicas web 5
 
 log "rolling web to nginx:1.28 + verifying history"
