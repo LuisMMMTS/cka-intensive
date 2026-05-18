@@ -178,6 +178,26 @@ else
   kubectl -n kube-system wait --for=condition=Available deploy/metrics-server --timeout=120s || warn "metrics-server not ready; will warm up in ~60s"
 fi
 
+# ----- preload lab images into kind nodes ----------------------------------
+# The bake pulled these to host docker. kind nodes run their own containerd
+# with separate cache, so they'd otherwise re-pull on first use — slow on
+# bad wifi and causes verify-cluster.sh's curl-test pod to time out.
+
+log "preloading lab images into kind nodes"
+for img in nginx:1.27 nginx:1.28 nginxinc/nginx-unprivileged:1.27 \
+           busybox:1.36 perl:5.34 hashicorp/http-echo \
+           curlimages/curl ghcr.io/rakyll/hey; do
+  if docker image inspect "$img" >/dev/null 2>&1; then
+    if kind load docker-image "$img" --name "$CLUSTER" >/dev/null 2>&1; then
+      echo "  + loaded $img"
+    else
+      echo "  ! $img load failed (will pull on demand)"
+    fi
+  else
+    echo "  - $img not on host (will pull on demand)"
+  fi
+done
+
 # ----- finalize -------------------------------------------------------------
 
 log ""
