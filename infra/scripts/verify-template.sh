@@ -122,15 +122,15 @@ for f in kind-bootstrap.sh kind-reset.sh lab-clean.sh verify-cluster.sh preload-
   fi
 done
 
-if [ -f /etc/profile.d/cka.sh ] && grep -q 'alias k=kubectl' /etc/profile.d/cka.sh 2>/dev/null; then
-  pass "system-wide shell aliases at /etc/profile.d/cka.sh"
+if [ -f "$HOME/.bashrc" ] && grep -q 'alias k=kubectl' "$HOME/.bashrc"; then
+  pass "shell aliases configured in ~/.bashrc"
 else
-  fail "/etc/profile.d/cka.sh missing or incomplete"
+  fail "~/.bashrc missing CKA shell setup — re-run template-bake.sh"
 fi
 if command -v kind-bootstrap.sh >/dev/null 2>&1; then
   pass "scripts on PATH (kind-bootstrap.sh resolvable)"
 else
-  fail "scripts not on PATH — re-login or 'source /etc/profile.d/cka.sh'"
+  fail "scripts not on PATH — open a new shell or 'source ~/.bashrc'"
 fi
 
 # ----- 8. cached lab images ------------------------------------------------

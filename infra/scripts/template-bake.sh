@@ -4,13 +4,20 @@
 # and replicate per trainee.
 #
 # DESIGN PRINCIPLE: this script only INSTALLS software and writes
-# /etc/profile.d/cka.sh + /etc/motd. It does not change kernel modules,
+# $TRAINEE_HOME/.bashrc + /etc/motd. It does not change kernel modules,
 # sysctls, swap, fstab, locales, or display-manager configs. Anything
 # that touches running-system state happens later (in lab scripts that
 # trainees run themselves on Day 4).
 #
 # This makes the bake safe against dadesktop's image config — no risk of
 # breaking auto-login, slow-boot, or display managers.
+#
+# WARNING: do NOT use /etc/profile.d/*.sh for shell setup on dadesktop.
+# The display manager sources files there via /bin/sh (dash on Debian),
+# and bash-specific syntax like `<(...)` parse-errors before any `if
+# [ -n "$BASH_VERSION" ]` guard runs — which aborts session load and
+# leaves the VM stuck pre-desktop. ~/.bashrc is bash-only and per-user,
+# so it stays out of the display-manager path entirely.
 #
 # Usage:
 #   sudo ./template-bake.sh
@@ -178,30 +185,47 @@ else
 fi
 find "$REPO_PATH/infra" -name '*.sh' -exec chmod +x {} +
 
-# ----- 8. Shell hygiene — system-wide via /etc/profile.d ------------------
+# ----- 8. Shell hygiene — per-user via ~/.bashrc --------------------------
+# Idempotent: a marker block prevents double-appending on re-bake. We do
+# NOT use /etc/profile.d/*.sh — see the WARNING in the header comment.
 
-step "installing system-wide shell aliases (/etc/profile.d/cka.sh)"
-cat >/etc/profile.d/cka.sh <<'EOF'
-# CKA course shell setup — applies to every user who logs in
+step "installing per-user shell setup in $TRAINEE_HOME/.bashrc"
+BASHRC="$TRAINEE_HOME/.bashrc"
+MARK_BEGIN='# ----- CKA course shell setup -----'
+
+if [ -f "$BASHRC" ] && grep -qF "$MARK_BEGIN" "$BASHRC"; then
+  echo "  ~/.bashrc already has CKA setup block, skipping"
+else
+  sudo -u "$TRAINEE_USER" tee -a "$BASHRC" >/dev/null <<'EOF'
+
+# ----- CKA course shell setup -----
 alias k=kubectl
-if [ -n "${BASH_VERSION:-}" ]; then
-  source <(kubectl completion bash) 2>/dev/null
-  complete -F __start_kubectl k 2>/dev/null
-fi
 export do='--dry-run=client -o yaml'
 export now='--grace-period=0 --force'
+
 # Debian doesn't put /usr/sbin and /sbin in non-root PATH by default,
-# but swapon, lsmod, sysctl, ip, ss live there.
+# but swapoff, lsmod, sysctl, ip, ss live there (needed in Day 4 Lab 7).
 case ":$PATH:" in
   *:/usr/sbin:*) ;;
   *) export PATH="$PATH:/usr/local/sbin:/usr/sbin:/sbin" ;;
 esac
-# Add the per-user repo's scripts/ dir to PATH if it exists
+
+# Course scripts as bare commands (kind-bootstrap.sh, verify-cluster.sh, etc.)
 if [ -d "$HOME/cka-intensive/infra/scripts" ]; then
-  export PATH="$PATH:$HOME/cka-intensive/infra/scripts"
+  case ":$PATH:" in
+    *:"$HOME/cka-intensive/infra/scripts":*) ;;
+    *) export PATH="$PATH:$HOME/cka-intensive/infra/scripts" ;;
+  esac
 fi
+
+# kubectl completion (safe here — .bashrc is bash-only)
+if command -v kubectl >/dev/null 2>&1; then
+  source <(kubectl completion bash)
+  complete -F __start_kubectl k
+fi
+# ----- end CKA course shell setup -----
 EOF
-chmod 0644 /etc/profile.d/cka.sh
+fi
 
 # ----- 9. MOTD --------------------------------------------------------------
 
@@ -226,8 +250,9 @@ echo "  Repo at:         $REPO_PATH"
 echo
 echo "═══════════════════════════════════════════════════════════════"
 echo "  IMPORTANT: log out and back in as $TRAINEE_USER before"
-echo "  doing anything else. The docker group membership and the"
-echo "  shell aliases only take effect in a fresh login session."
+echo "  doing anything else. Re-login is required for the docker"
+echo "  group membership to take effect. The shell aliases land via"
+echo "  ~/.bashrc and apply in any new bash shell."
 echo "═══════════════════════════════════════════════════════════════"
 echo
 echo "  After re-login, validate:"
