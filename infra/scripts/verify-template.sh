@@ -87,6 +87,7 @@ check_version kind    'v0\.31' 'kind version 2>/dev/null'
 # the binaries exist here.
 check_version kubeadm '1\.36\.1' 'kubeadm version -o short 2>/dev/null'
 check_cmd kubelet
+check_cmd crictl    "crictl (cri-tools)"
 check_cmd etcdctl    "etcdctl (etcd-client)"
 
 # ----- 5. VS Code (optional, but expected) ---------------------------------

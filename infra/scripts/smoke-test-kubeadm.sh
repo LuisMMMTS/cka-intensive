@@ -32,7 +32,7 @@ die()  { bad "$*"; exit 1; }
 log "precondition checks"
 command -v kubeadm    >/dev/null || die "kubeadm not installed"
 command -v containerd >/dev/null || die "containerd not installed"
-command -v crictl     >/dev/null || die "crictl not installed (comes with kubelet pkg)"
+command -v crictl     >/dev/null || die "crictl not installed — 'sudo apt-get install -y cri-tools'"
 sudo -n true 2>/dev/null         || die "passwordless sudo required (or run 'sudo -v' first)"
 ok "tools present, sudo cached"
 

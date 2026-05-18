@@ -144,7 +144,7 @@ KUBE_PKG_VER=$(apt-cache madison kubelet | awk -v v="$K8S_VERSION" \
 [ -n "$KUBE_PKG_VER" ] || die "no apt version matching $K8S_VERSION found"
 apt-get -y install \
   kubelet="$KUBE_PKG_VER" kubeadm="$KUBE_PKG_VER" kubectl="$KUBE_PKG_VER" \
-  etcd-client
+  cri-tools etcd-client
 apt-mark hold kubelet kubeadm kubectl
 
 # ----- 5. VS Code (DEB822 format) ------------------------------------------
