@@ -78,7 +78,7 @@ spec:
           image: nginx:1.27
           ports: [{ containerPort: 80 }]
 EOF
-assert_pods_ready_by_label "app=db" 120s
+assert_statefulset_ready db 180s
 for i in 0 1 2; do assert_resource_exists pod "db-$i"; done
 
 # Verify pod naming is stable: delete db-1, expect it to come back with the same name.

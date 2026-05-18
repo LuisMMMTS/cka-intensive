@@ -70,6 +70,35 @@ assert_pods_ready_by_label() {
   fi
 }
 
+# Wait for a StatefulSet to have all replicas Ready (creates pods serially,
+# so a pod label-wait misses pods that haven't been created yet).
+assert_statefulset_ready() {
+  local name="$1" timeout="${2:-180s}"
+  if kubectl -n "$TEST_NAMESPACE" rollout status "statefulset/$name" --timeout="$timeout" >/dev/null 2>&1; then
+    pass "statefulset/$name fully rolled out"
+  else
+    fail "statefulset/$name NOT fully rolled out within $timeout"
+    kubectl -n "$TEST_NAMESPACE" describe sts "$name" 2>/dev/null | tail -15
+  fi
+}
+
+# Wait for a Service's Endpoints to have at least one address. Critical
+# before curl-testing: kubectl expose returns immediately, but the
+# endpoint controller takes a moment to populate the EndpointSlice.
+wait_for_endpoints() {
+  local svc="$1" timeout="${2:-30}"
+  local i
+  for i in $(seq 1 "$timeout"); do
+    if kubectl -n "$TEST_NAMESPACE" get endpoints "$svc" \
+        -o jsonpath='{.subsets[0].addresses[0].ip}' 2>/dev/null | grep -q .; then
+      return 0
+    fi
+    sleep 1
+  done
+  fail "endpoints/$svc never populated within ${timeout}s"
+  return 1
+}
+
 # Wait for a Job to complete successfully.
 assert_job_complete() {
   local name="$1" timeout="${2:-120s}"
@@ -119,30 +148,33 @@ assert_daemonset_on_every_node() {
 
 # ----- HTTP / NetworkPolicy assertions --------------------------------------
 
-# Run a curl against a Service from a labelled pod. Pass if curl succeeds.
+# Run a curl against a Service from a (possibly labelled) pod. Pass if curl
+# succeeds. The curl runs inside an `sh -c "sleep 3 && curl ..."` wrapper so
+# Calico has time to program the pod's WorkloadEndpoint with its labels
+# before traffic flows — otherwise label-based NetworkPolicy rules may not
+# match a brand-new pod.
 # Usage: assert_curl_succeeds <target-url> [pod-labels] [pod-image]
 assert_curl_succeeds() {
   local url="$1" labels="${2:-}" img="${3:-curlimages/curl}"
   local pod_name="curl-$RANDOM"
   local args=(--rm -i --restart=Never --image="$img" --timeout=60s)
   [ -n "$labels" ] && args+=(--labels="$labels")
-  if kubectl -n "$TEST_NAMESPACE" run "$pod_name" "${args[@]}" -- \
-      curl -sf -m 8 "$url" 2>/dev/null | grep -q .; then
+  if kubectl -n "$TEST_NAMESPACE" run "$pod_name" "${args[@]}" --command -- \
+      sh -c "sleep 3 && curl -sf -m 10 '$url'" 2>/dev/null | grep -q .; then
     pass "GET $url succeeds${labels:+ (from $labels)}"
   else
     fail "GET $url FAILED${labels:+ (from $labels)}"
   fi
 }
 
-# Run a curl that we EXPECT to fail (e.g. NetworkPolicy denying access).
+# Run a curl that we EXPECT to fail (NetworkPolicy denying access).
 assert_curl_fails() {
   local url="$1" labels="${2:-}" img="${3:-curlimages/curl}"
   local pod_name="curl-fail-$RANDOM"
   local args=(--rm -i --restart=Never --image="$img" --timeout=30s)
   [ -n "$labels" ] && args+=(--labels="$labels")
-  # We want curl to FAIL (timeout / connection refused). If it returns a body, that's a fail.
-  if kubectl -n "$TEST_NAMESPACE" run "$pod_name" "${args[@]}" -- \
-      curl -sf -m 5 "$url" 2>/dev/null | grep -q .; then
+  if kubectl -n "$TEST_NAMESPACE" run "$pod_name" "${args[@]}" --command -- \
+      sh -c "sleep 3 && curl -sf -m 5 '$url'" 2>/dev/null | grep -q .; then
     fail "GET $url succeeded but should have been denied${labels:+ (from $labels)}"
   else
     pass "GET $url denied${labels:+ (from $labels)}"

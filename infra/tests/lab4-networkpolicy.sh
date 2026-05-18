@@ -48,6 +48,12 @@ kubectl -n "$TEST_NAMESPACE" expose deploy backend --port=80 >/dev/null
 assert_deployment_available frontend
 assert_deployment_available backend
 
+# Wait for Service endpoints to populate. kubectl expose returns immediately
+# but the endpoint controller takes a moment to wire the EndpointSlice —
+# without this the baseline curl can connect-timeout against an empty Service.
+wait_for_endpoints frontend
+wait_for_endpoints backend
+
 # Baseline: an unlabeled pod can reach both services (no NetworkPolicy yet)
 log "baseline: tmp pod can reach frontend AND backend"
 assert_curl_succeeds "http://frontend.$TEST_NAMESPACE.svc.cluster.local"
