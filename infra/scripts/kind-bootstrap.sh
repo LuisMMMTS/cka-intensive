@@ -101,15 +101,24 @@ if kubectl get crd installations.operator.tigera.io >/dev/null 2>&1; then
   log "Calico already installed, skipping"
 else
   log "installing Calico $CALICO_VERSION (this takes ~2 min)"
-  kubectl apply -f "https://raw.githubusercontent.com/projectcalico/calico/${CALICO_VERSION}/manifests/tigera-operator.yaml"
 
-  # The tigera-operator registers its CRDs asynchronously after the
-  # deployment becomes Ready. Applying the Installation CR before the
-  # CRDs are Established fails with "no matches for kind Installation".
-  log "waiting for tigera-operator CRDs to be Established"
-  kubectl wait --for condition=established --timeout=120s \
+  # Calico v3.30+ split the operator CRDs out of tigera-operator.yaml into
+  # a separate operator-crds.yaml. Order matters: CRDs must exist before
+  # the operator starts (otherwise it crash-loops) and before the
+  # Installation CR is applied (otherwise "no matches for kind"). Use
+  # --server-side because some CRDs exceed kubectl's annotation size limit.
+  log "applying operator CRDs"
+  kubectl apply --server-side -f \
+    "https://raw.githubusercontent.com/projectcalico/calico/${CALICO_VERSION}/manifests/operator-crds.yaml"
+
+  log "waiting for operator CRDs to be Established"
+  kubectl wait --for condition=established --timeout=60s \
     crd/installations.operator.tigera.io \
     crd/apiservers.operator.tigera.io
+
+  log "applying tigera-operator"
+  kubectl apply -f \
+    "https://raw.githubusercontent.com/projectcalico/calico/${CALICO_VERSION}/manifests/tigera-operator.yaml"
 
   # The default Calico Installation uses a different pod CIDR than ours;
   # patch it so the CNI agrees with the cluster.
