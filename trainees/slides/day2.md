@@ -360,6 +360,28 @@ Out of scope for the exam, but if you see `node-local-dns` pods in `kube-system`
 
 ---
 
+## What ships with the cluster — Ingress edition
+
+| Component | In a fresh kind / kubeadm cluster? |
+|---|---|
+| `networking.k8s.io/v1 Ingress` API type | ✅ **Yes** — it's in core Kubernetes. `kubectl get ingress` works out of the box (empty list). |
+| `kubectl apply -f ingress.yaml` accepted? | ✅ Yes — apiserver stores the object. |
+| Anything actually happens? | ❌ **No** — without a controller the Ingress sits at `ADDRESS: <none>` forever. |
+| Ingress controller pod | ❌ **No** — you install one (ingress-nginx, traefik, ...). |
+| `IngressClass` matching that controller | ❌ **No** — created by the controller's install manifest. |
+
+The install in Lab 3 does three things:
+```sh
+kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/main/deploy/static/provider/kind/deploy.yaml
+# 1. ingress-nginx namespace
+# 2. ingress-nginx-controller Deployment (an nginx pod watching the Ingress API)
+# 3. IngressClass "nginx" — so spec.ingressClassName: nginx routes here
+```
+
+After this, the Ingress objects you create finally do something.
+
+---
+
 ## Ingress controllers (you choose)
 
 - **ingress-nginx** — the reference; installed via Helm; most common
@@ -461,6 +483,59 @@ The Ingress resource has problems:
 - Hard to split "who owns the listener" from "who owns the route"
 
 **Gateway API** (GA in 1.31) is the formal replacement. CKA references it. Real clusters are adopting it now.
+
+---
+
+## What ships with the cluster — Gateway API edition
+
+Unlike Ingress, **nothing** about Gateway API is in core Kubernetes:
+
+| Component | In a fresh kind / kubeadm cluster? |
+|---|---|
+| `gateway.networking.k8s.io/v1` API types (`Gateway`, `HTTPRoute`, `GatewayClass`, ...) | ❌ **No** — CRDs must be installed first. |
+| `kubectl get gateway` | ❌ Errors: `the server doesn't have a resource type "gateway"` |
+| Controller (Contour, Cilium-gw, Istio, ...) | ❌ No — install separately. |
+| A `GatewayClass` matching your controller | ❌ No — install separately. |
+
+So Gateway API is **two installs** on top of a fresh cluster, not one:
+
+```sh
+# 1. Install the CRDs (the API types themselves)
+kubectl apply -f https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.2.0/standard-install.yaml
+
+# 2. Install a controller that implements them (we use Contour)
+kubectl apply -f https://projectcontour.io/quickstart/contour-gateway-provisioner.yaml
+
+# 3. Create a GatewayClass pointing at the controller
+kubectl apply -f - <<EOF
+apiVersion: gateway.networking.k8s.io/v1
+kind: GatewayClass
+metadata: { name: contour }
+spec:
+  controllerName: projectcontour.io/gateway-controller
+EOF
+```
+
+Our `install-gateway-api.sh` script wraps all three steps and is
+idempotent — re-running is a no-op.
+
+---
+
+## Ingress vs Gateway API — side by side
+
+| | Ingress | Gateway API |
+|---|---|---|
+| API types in core k8s | ✅ built-in | ❌ CRDs (install yourself) |
+| Apply object on fresh cluster | accepted, does nothing | rejected, "no resource type" |
+| Controller needed | yes (separate install) | yes (separate install) |
+| Resource model | one object (Ingress) does it all | three objects (GatewayClass, Gateway, HTTPRoute) split by role |
+| Protocols | HTTP/HTTPS only | HTTP, HTTPS, TCP, UDP, TLS, gRPC |
+| Traffic splitting / weights | annotation-only (vendor-specific) | first-class in the spec |
+| Cross-namespace routing | hacky (annotations) | first-class via `parentRefs` + `ReferenceGrant` |
+| Status as of k8s 1.36 | stable, widely deployed | GA since 1.31, increasingly adopted |
+| On the exam | yes (more questions) | yes (fewer questions, but present) |
+
+**Practical:** in this course, ingress-nginx (Ingress controller) and Contour (Gateway API controller) live side-by-side on the same kind cluster. Both labs work because they're addressed by different `IngressClass` / `GatewayClass` names.
 
 ---
 
