@@ -33,6 +33,18 @@ k top pods -A
 
 If `top` returns errors for ~60s after install — be patient. metrics-server needs one scrape cycle.
 
+**Hangs longer than ~2 min?** metrics-server is sick. Most common cause
+on kind clusters: `--kubelet-insecure-tls` was never added. Check:
+
+```sh
+k -n kube-system describe deploy metrics-server | grep -A2 Args:
+# Should include: --kubelet-insecure-tls
+k -n kube-system logs -l k8s-app=metrics-server | tail
+# Look for TLS errors connecting to kubelets (x509: ...)
+```
+
+If the flag is missing, re-run the patch from 6e.1.
+
 ## 6e.2 Deploy with requests
 
 ```sh

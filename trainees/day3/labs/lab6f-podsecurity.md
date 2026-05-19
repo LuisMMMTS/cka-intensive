@@ -51,10 +51,13 @@ Read the message carefully — that's the to-do list.
 
 ## 6f.3 Harden until accepted
 
-Generate the YAML:
+Generate the YAML (`$do` is the shell alias for `--dry-run=client -o yaml`
+that the bake set up in your `~/.bashrc`):
 
 ```sh
 k -n lab6f run nginx --image=nginx:1.27 $do > /tmp/nginx.yaml
+# If $do is undefined for any reason:
+# k -n lab6f run nginx --image=nginx:1.27 --dry-run=client -o yaml > /tmp/nginx.yaml
 ```
 
 Edit `/tmp/nginx.yaml`. Replace the auto-generated `spec` with:

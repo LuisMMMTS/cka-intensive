@@ -88,6 +88,22 @@ kubectl get ns | grep important       # should be back!
 kubectl -n important get all          # victim deployment restored
 ```
 
+Sanity-check etcd itself after the restore (the real exam often asks
+this as proof):
+
+```sh
+sudo ETCDCTL_API=3 etcdctl --endpoints=https://127.0.0.1:2379 \
+  --cacert=/etc/kubernetes/pki/etcd/ca.crt \
+  --cert=/etc/kubernetes/pki/etcd/server.crt \
+  --key=/etc/kubernetes/pki/etcd/server.key \
+  endpoint health                    # → 127.0.0.1:2379 is healthy
+sudo ETCDCTL_API=3 etcdctl --endpoints=https://127.0.0.1:2379 \
+  --cacert=/etc/kubernetes/pki/etcd/ca.crt \
+  --cert=/etc/kubernetes/pki/etcd/server.crt \
+  --key=/etc/kubernetes/pki/etcd/server.key \
+  member list -w table               # one member, the restored one
+```
+
 ## Deliverable
 
 `kubectl get ns important` after restore.

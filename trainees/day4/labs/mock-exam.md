@@ -1,5 +1,19 @@
 # Mock Exam — 75 Minutes, 15 Tasks
 
+**Cluster prerequisite — run BEFORE starting the timer:**
+
+This mock assumes a **fresh 3-node kind cluster** (`cka-control-plane`,
+`cka-worker`, `cka-worker2`). Q9 explicitly taints `cka-worker2`; Q14
+takes an etcd snapshot from inside the control-plane container. If you
+just finished Lab 9 on kind, you're already there. If you stayed on
+the kubeadm cluster from Labs 7–8b, reset to kind first:
+
+```sh
+cd ~/cka-intensive/infra/scripts
+./kind-reset.sh        # ~90s: tear down whatever's running, fresh 3-node kind
+./verify-cluster.sh    # 14 green checks
+```
+
 **Rules (mimic the real exam):**
 - **75 minutes hard stop.** Set a timer. When time is up, hands off the keyboard.
 - Allowed reference: only `kubernetes.io/docs`, `helm.sh/docs`, `kubernetes.io/blog`. No Google, no AI, no peer help.
