@@ -3,7 +3,21 @@
 **Time:** 25 min
 **Goal:** wire a Gateway + HTTPRoute with traffic splitting.
 
-Trainer has installed the **Gateway API CRDs** and the **Contour** controller before the lab. Verify:
+### Pre-install (~2 min — trainer projects this once; everyone runs on their VM)
+
+Gateway API CRDs and the Contour controller aren't on the cluster by
+default. Run the install script:
+
+```sh
+~/cka-intensive/infra/scripts/install-gateway-api.sh
+```
+
+This installs Gateway API v1.2.0 standard CRDs, the Contour
+Gateway-provisioner, and a `GatewayClass` named `contour`. Idempotent —
+re-running is a no-op. Pass `--uninstall` to remove everything (the
+cleanup before Day 4 mock exam does this via `kind-reset.sh`).
+
+Verify:
 
 ```sh
 k get crd | grep gateway.networking.k8s.io
@@ -11,7 +25,8 @@ k get crd | grep gateway.networking.k8s.io
 # gateways.gateway.networking.k8s.io
 # httproutes.gateway.networking.k8s.io
 # ...
-k -n projectcontour get pods
+k -n projectcontour get pods                # Running
+k get gatewayclass                          # contour
 ```
 
 Work in namespace `lab3b`:
