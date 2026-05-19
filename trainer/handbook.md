@@ -57,17 +57,25 @@ create any controller type and inject config three ways.
 
 ## Pacing
 
-| Slot | Duration | Content | Lab |
+Lecture and lab are separate slots so timings are honest. Lab times below
+match the `**Time:** N min` declarations at the top of each lab file.
+
+| Slot | Duration | Activity | Lab file |
 |---|---|---|---|
-| 08:30–09:30 | 60 min | **Lab 0** — environment bootstrap | lab0 |
-| 09:30–10:45 | 75 min | Containers + Kubernetes architecture deep-dive | — |
-| 10:45–11:00 | 15 min | Break | — |
-| 11:00–12:30 | 90 min | kubectl mastery + **Lab 1** | lab1 |
+| 08:30–09:00 | 30 min | **Lab 0** — cluster bootstrap | `day1/labs/lab0-environment.md` |
+| 09:00–10:30 | 90 min | Lecture — Containers + K8s architecture + etcd/Raft | `slides/day1.md` |
+| 10:30–10:45 | 15 min | Break | — |
+| 10:45–11:15 | 30 min | Lecture — kubectl + imperative-first | `slides/day1.md` |
+| 11:15–12:30 | 75 min | **Lab 1** — kubectl mastery | `day1/labs/lab1-kubectl-basics.md` |
 | 12:30–13:30 | 60 min | Lunch | — |
-| 13:30–15:00 | 90 min | Workload types + **Lab 2** | lab2 |
+| 13:30–14:00 | 30 min | Lecture — Workload types | `slides/day1.md` |
+| 14:00–15:00 | 60 min | **Lab 2** — workloads | `day1/labs/lab2-workloads.md` |
 | 15:00–15:15 | 15 min | Break | — |
-| 15:15–16:30 | 75 min | ConfigMaps, Secrets, Probes + **Lab 2b** | lab2b |
-| 16:30–17:00 | 30 min | Day-1 recap, Day-2 preview, quiz preview | — |
+| 15:15–15:45 | 30 min | Lecture — ConfigMaps, Secrets, Probes | `slides/day1.md` |
+| 15:45–16:30 | 45 min | **Lab 2b** — config + probes | `day1/labs/lab2b-config-probes.md` |
+| 16:30–17:00 | 30 min | Day-1 recap, Day-2 preview, quiz prompt | — |
+
+**Total:** 510 min = 08:30–17:00. ~210 min labs, ~180 min lecture, 90 min breaks/lunch.
 
 ## Slot-by-slot notes
 
@@ -184,17 +192,28 @@ real enforcement (Calico).
 
 ## Pacing
 
-| Slot | Duration | Content | Lab |
+Day 2 labs are short relative to their slot windows (Lab 3 is 60, 3b is 25,
+Lab 4 is 45). The slots are wider on purpose — Day 2 is the day where
+networking concepts need slow, repeated whiteboard reinforcement, and
+ingress-nginx install can stall on slow WiFi. The extra time IS the
+teaching time, not slack to skip.
+
+| Slot | Duration | Activity | File |
 |---|---|---|---|
 | 08:30–08:40 | 10 min | **Day-1 quiz** (oral) | — |
-| 08:40–10:00 | 80 min | Services + DNS deep-dive | — |
+| 08:40–10:00 | 80 min | Lecture — Services + DNS deep-dive | `slides/day2.md` |
 | 10:00–10:15 | 15 min | Break | — |
-| 10:15–12:00 | 105 min | Ingress + **Lab 3** | lab3 |
+| 10:15–11:00 | 45 min | Lecture — Ingress | `slides/day2.md` |
+| 11:00–12:00 | 60 min | **Lab 3** — services & ingress | `day2/labs/lab3-services-ingress.md` |
 | 12:00–13:00 | 60 min | Lunch | — |
-| 13:00–14:30 | 90 min | Gateway API + **Lab 3b** | lab3b |
+| 13:00–14:00 | 60 min | Lecture — Gateway API | `slides/day2.md` |
+| 14:00–14:30 | 25 min | **Lab 3b** — Gateway API + traffic split | `day2/labs/lab3b-gateway-api.md` |
 | 14:30–14:45 | 15 min | Break | — |
-| 14:45–16:30 | 105 min | NetworkPolicy + **Lab 4** | lab4 |
+| 14:45–15:45 | 60 min | Lecture — NetworkPolicy + AND/OR trap | `slides/day2.md` (lines 661-678 has the trap) |
+| 15:45–16:30 | 45 min | **Lab 4** — NetworkPolicy | `day2/labs/lab4-networkpolicy.md` |
 | 16:30–17:00 | 30 min | Recap, Day-3 preview | — |
+
+**Total:** 510 min. ~130 min labs, ~290 min lecture, 90 min breaks/lunch.
 
 ## Slot-by-slot notes
 
@@ -308,21 +327,38 @@ and explain why their HPA isn't scaling.
 
 ## Pacing
 
-| Slot | Duration | Content | Lab |
+Day 3 has 8 labs totalling ~260 min. The day length affords ~420 min of
+work time after lunch + breaks. That leaves ~160 min for lecture across
+8 topic blocks — about 20 min of teaching per block, which is tight.
+Stick to the slot timings; do NOT extend the lecture for one topic at
+the expense of another. The 16:00–17:00 catch-up is your safety net for
+trainees who fell behind on the longer labs.
+
+| Slot | Duration | Activity | File |
 |---|---|---|---|
 | 08:30–08:40 | 10 min | **Day-2 quiz** | — |
-| 08:40–09:45 | 65 min | Scheduling + **Lab 6** (taints/affinity) | lab6 |
-| 09:45–10:30 | 45 min | Storage + **Lab 5** | lab5 |
-| 10:30–10:45 | 15 min | Break | — |
-| 10:45–11:30 | 45 min | ResourceQuota + LimitRange + **Lab 5b** | lab5b |
-| 11:30–12:30 | 60 min | RBAC + **Lab 6b** | lab6b |
-| 12:30–13:30 | 60 min | Lunch | — |
-| 13:30–14:00 | 30 min | Helm + **Lab 6c** | lab6c |
-| 14:00–14:30 | 30 min | Kustomize + **Lab 6d** | lab6d |
-| 14:30–14:45 | 15 min | Break | — |
-| 14:45–15:30 | 45 min | HPA + **Lab 6e** | lab6e |
-| 15:30–16:00 | 30 min | PSA + **Lab 6f** | lab6f |
-| 16:00–17:00 | 60 min | Day-3 catch-up + Day-4 preview | — |
+| 08:40–09:00 | 20 min | Lecture — Scheduling | `slides/day3.md` |
+| 09:00–09:45 | 45 min | **Lab 6** — scheduling | `day3/labs/lab6-scheduling.md` |
+| 09:45–10:00 | 15 min | Lecture — Storage | `slides/day3.md` |
+| 10:00–10:45 | 45 min | **Lab 5** — storage | `day3/labs/lab5-storage.md` |
+| 10:45–11:00 | 15 min | Break | — |
+| 11:00–11:15 | 15 min | Lecture — Quotas + LimitRange | `slides/day3.md` |
+| 11:15–11:40 | 25 min | **Lab 5b** — quotas | `day3/labs/lab5b-quotas.md` |
+| 11:40–12:00 | 20 min | Lecture — RBAC | `slides/day3.md` |
+| 12:00–12:45 | 45 min | **Lab 6b** — RBAC | `day3/labs/lab6b-rbac.md` |
+| 12:45–13:45 | 60 min | Lunch (slid 15 min later — Day 3 is intense) | — |
+| 13:45–14:00 | 15 min | Lecture — Helm | `slides/day3.md` |
+| 14:00–14:30 | 30 min | **Lab 6c** — Helm | `day3/labs/lab6c-helm.md` |
+| 14:30–14:45 | 15 min | Lecture — Kustomize | `slides/day3.md` |
+| 14:45–15:15 | 30 min | **Lab 6d** — Kustomize | `day3/labs/lab6d-kustomize.md` |
+| 15:15–15:30 | 15 min | Break | — |
+| 15:30–15:45 | 15 min | Lecture — HPA | `slides/day3.md` |
+| 15:45–16:15 | 30 min | **Lab 6e** — HPA | `day3/labs/lab6e-hpa.md` |
+| 16:15–16:25 | 10 min | Lecture — PSA | `slides/day3.md` |
+| 16:25–16:45 | 20 min | **Lab 6f** — Pod Security | `day3/labs/lab6f-podsecurity.md` |
+| 16:45–17:00 | 15 min | Day-3 recap + Day-4 preview | — |
+
+**Total:** 510 min. ~260 min labs, ~145 min lecture, 105 min breaks/lunch. Day 3 is the most lecture-compressed day — keep introductions short.
 
 ## Slot-by-slot notes
 
@@ -483,19 +519,29 @@ they can pass the real exam.
 
 ## Pacing
 
-| Slot | Duration | Content | Lab |
+| Slot | Duration | Activity | File |
 |---|---|---|---|
 | 08:30–08:40 | 10 min | **Day-3 quiz** | — |
-| 08:40–10:30 | 110 min | kubeadm cluster install + **Lab 7** | lab7 |
-| 10:30–10:45 | 15 min | Break | — |
-| 10:45–11:30 | 45 min | TLS certs deep-dive | — |
-| 11:30–12:30 | 60 min | etcd backup/restore + **Lab 8** | lab8 |
-| 12:30–13:30 | 60 min | Lunch | — |
-| 13:30–14:15 | 45 min | CRDs + **Lab 8b** | lab8b |
-| 14:15–15:00 | 45 min | Troubleshooting playbook + **Lab 9** | lab9 |
-| 15:00–15:15 | 15 min | Break | — |
-| 15:15–16:30 | 75 min | **Mock exam** (75 min, 15 questions) | mock-exam |
-| 16:30–17:00 | 30 min | Mock debrief + exam logistics | — |
+| 08:40–09:10 | 30 min | Lecture — kubeadm overview + prereqs | `slides/day4.md` |
+| 09:10–10:40 | 90 min | **Lab 7** — kubeadm install | `day4/labs/lab7-kubeadm.md` |
+| 10:40–10:55 | 15 min | Break | — |
+| 10:55–11:25 | 30 min | Lecture — TLS certs (kubeadm PKI) | `slides/day4.md` |
+| 11:25–11:40 | 15 min | Lecture — etcd backup/restore | `slides/day4.md` |
+| 11:40–12:25 | 45 min | **Lab 8** — etcd backup/restore | `day4/labs/lab8-etcd-backup.md` |
+| 12:25–13:25 | 60 min | Lunch | — |
+| 13:25–13:40 | 15 min | Lecture — CRDs | `slides/day4.md` |
+| 13:40–14:10 | 30 min | **Lab 8b** — CRDs (cert-manager) | `day4/labs/lab8b-crds.md` |
+| 14:10–14:25 | 15 min | Lecture — Troubleshooting playbook | `slides/day4.md` |
+| 14:25–15:25 | 60 min | **Lab 9** — troubleshooting (4 scenarios) | `day4/labs/lab9-troubleshooting.md` |
+| 15:25–15:40 | 15 min | Break + cluster reset for mock | — |
+| 15:40–16:55 | 75 min | **Mock exam** (15 questions, exam-cond) | `day4/labs/mock-exam.md` |
+| 16:55–17:00 | 5 min | Hard stop on mock | — |
+
+If the day stretches: mock debrief + exam logistics happen the next morning
+or via async writeup. Don't compress the mock to <75 min — it must
+reproduce real exam time pressure.
+
+**Total:** 510 min. ~225 min labs, ~120 min lecture, 90 min breaks/lunch, 75 min mock.
 
 ## Slot-by-slot notes
 
@@ -564,17 +610,63 @@ they can pass the real exam.
   works after the CRD is installed but BEFORE the controller is running.
   That's the lesson: the API surface and the reconciliation are decoupled.
 
-### Troubleshooting + Lab 9 (14:15–15:00)
+### Troubleshooting + Lab 9 (14:25–15:25)
 
 - *Teach*: the playbook is the slide. **Always start with `kubectl get pods -A -o wide`** —
   it tells you 80% of the answer (what's not Running, on what node). Then
   `kubectl describe` for events, then `kubectl logs` for app output, then
   `journalctl -u kubelet` if the kubelet itself is sick.
-- *Watch for*: Lab 9 is intentionally hard. Trainees may stall at 20+ min
-  per scenario. Hint timing: 10 min in, suggest "check kubelet status
-  on the affected node." 15 min in, point at `systemctl status kubelet`.
-  20 min in, just walk them through it — the exam time pressure won't
-  wait for breakthroughs.
+- *Watch for*: Lab 9 is intentionally hard. Each trainee gets ONE of 4
+  scenarios (assign A/B/C/D when handing out). Hint timing: 10 min in,
+  point them at the scenario's `<details>` hint block in the lab file.
+  15 min in, sit down and ask "what does `kubectl get pods -A` show?"
+  20 min in, walk them through it — the exam time pressure won't wait
+  for breakthroughs.
+
+#### Scenario fix paths (trainer cheatsheet — DO NOT share with trainees)
+
+The break/fix scripts that produce these scenarios live in the private
+trainer repo. Each script breaks one specific thing; the fix paths below
+are the answer keys.
+
+**Scenario A — broken kubelet on a worker** (the script masks + stops kubelet)
+- Diagnosis path: `kubectl get nodes` shows worker NotReady → `kubectl
+  describe node <worker>` shows kubelet not posting heartbeats →
+  `docker exec -it cka-worker bash; systemctl status kubelet` reveals
+  `Loaded: masked`.
+- Fix: `sudo systemctl unmask kubelet && sudo systemctl start kubelet`.
+- Proof: `kubectl get nodes` shows Ready within ~30s.
+
+**Scenario B — broken control-plane static pod** (the script edits
+`kube-apiserver.yaml` to set `--etcd-servers=https://127.0.0.1:9999`)
+- Diagnosis path: `kubectl` commands fail/hang with "connection refused"
+  → `docker exec -it cka-control-plane bash; crictl ps -a` shows apiserver
+  crashlooping → `crictl logs <id>` reveals failed etcd connect →
+  inspect `/etc/kubernetes/manifests/kube-apiserver.yaml`.
+- Fix: edit the manifest, change `9999` to `2379`, save. kubelet
+  auto-reloads the static pod within ~10s.
+- Proof: `kubectl get pods -A` responds again.
+
+**Scenario C — broken DNS** (the script scales CoreDNS to 0 replicas)
+- Diagnosis path: pods reach each other by IP but not by name →
+  `kubectl -n kube-system get pods -l k8s-app=kube-dns` shows nothing
+  Running → `kubectl -n kube-system get deploy coredns` shows
+  REPLICAS=0/0.
+- Fix: `kubectl -n kube-system scale deploy coredns --replicas=2`.
+- Proof: `nslookup kubernetes.default` from a debug pod resolves.
+
+**Scenario D — broken app** (the script sets `image=nginx:1.99-doesnotexist`
+on a Deployment in the `broken` namespace)
+- Diagnosis path: `kubectl -n broken get pods` shows ImagePullBackOff →
+  `kubectl -n broken describe pod <pod>` shows "Failed to pull image
+  nginx:1.99-doesnotexist".
+- Fix: `kubectl -n broken set image deploy/webapp <container>=nginx:1.27`
+  (container name visible in `describe`).
+- Proof: pods become Ready within ~30s.
+
+If a trainee gets a different break than these 4, the scenario script in
+the trainer repo has been updated — read it before the lab to know the
+fix.
 
 ### Mock exam (15:15–16:30)
 
