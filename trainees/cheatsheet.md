@@ -43,6 +43,67 @@ k autoscale deploy web --min=2 --max=10 --cpu-percent=60 # hpa
 k create token <sa> --duration=1h                        # SA token
 ```
 
+## Rollouts (Deployments) — exam-critical
+
+```sh
+k set image deploy/web nginx=nginx:1.28           # roll forward
+k rollout status deploy/web                       # block until done (exit 0 = success)
+k rollout history deploy/web                      # list revisions
+k rollout history deploy/web --revision=2         # what was in rev 2?
+k rollout undo deploy/web                         # back to previous rev
+k rollout undo deploy/web --to-revision=1         # back to a specific rev
+k rollout restart deploy/web                      # trigger a roll without spec change
+k rollout pause deploy/web                        # pause mid-roll (canary pattern)
+k rollout resume deploy/web
+```
+
+## Scaling
+
+```sh
+k scale deploy web --replicas=5
+k scale --replicas=0 deploy/web                   # quick "off" switch
+k scale --current-replicas=3 --replicas=5 deploy/web  # CAS-style (fails if not 3)
+```
+
+## StatefulSet (the headless-service pattern)
+
+```yaml
+# 1. Headless Service — clusterIP: None — gives stable per-pod DNS
+apiVersion: v1
+kind: Service
+metadata: { name: db }
+spec:
+  clusterIP: None
+  selector: { app: db }
+  ports: [{ port: 80 }]
+---
+# 2. StatefulSet — pods get stable names: db-0, db-1, db-2
+apiVersion: apps/v1
+kind: StatefulSet
+metadata: { name: db }
+spec:
+  serviceName: db              # must match the headless service name
+  replicas: 3
+  selector: { matchLabels: { app: db } }
+  template:
+    metadata: { labels: { app: db } }
+    spec:
+      containers:
+        - { name: nginx, image: nginx:1.27, ports: [{ containerPort: 80 }] }
+```
+
+Stable DNS from inside the cluster: `db-0.db.<ns>.svc.cluster.local`.
+Delete `db-1` → it comes back as `db-1` (not a random name).
+
+## DaemonSet (no imperative generator — create from Deployment)
+
+```sh
+k create deploy node-watch --image=busybox:1.36 $do -- sleep 86400 > /tmp/ds.yaml
+# Edit: kind: Deployment → kind: DaemonSet; remove spec.replicas + spec.strategy
+k apply -f /tmp/ds.yaml
+k get ds,pods -o wide                             # one pod per node
+```
+
 ## Inspection
 
 ```sh

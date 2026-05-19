@@ -7,13 +7,72 @@ Work in namespace `lab2`: `k create ns lab2 && k config set-context --current --
 
 ## 2.1 Deployment with rolling update
 
-Create `web` (3 replicas, `nginx:1.27`). Roll it to `nginx:1.28` and confirm zero downtime by running `wget` in a loop from another terminal.
+```sh
+k create deploy web --image=nginx:1.27 --replicas=3
+k get deploy,rs,pods                                # see all three layers
+k expose deploy web --port=80                       # for the wget loop below
+```
+
+In a **second terminal**, start a continuous probe so you can watch zero downtime:
+
+```sh
+k run probe --rm -it --image=busybox:1.36 --restart=Never -- \
+  sh -c 'while true; do wget -qO- web && echo; sleep 0.5; done'
+```
+
+Back in the first terminal, roll out a new image:
+
+```sh
+k set image deploy/web nginx=nginx:1.28
+k rollout status deploy/web                         # blocks until done
+k rollout history deploy/web                        # see revisions
+```
+
+The probe should print the nginx welcome page continuously — zero
+dropped requests. If you see a connection reset, you've found the
+default RollingUpdate parameters' edge case.
+
+Rollback if you want to see it:
+```sh
+k rollout undo deploy/web
+```
 
 ## 2.2 DaemonSet
 
-Create a DaemonSet `node-watch` running `busybox:1.36` with command `sleep 86400` on every node. Confirm one pod per node.
+There is no `kubectl create daemonset` generator. Start from a Deployment
+YAML, change `kind: DaemonSet`, drop `replicas` and `strategy`:
 
-Hint: there is no `kubectl create daemonset` generator. Start from a Deployment YAML, change `kind: DaemonSet`, drop `replicas` and `strategy`.
+```sh
+k create deploy node-watch --image=busybox:1.36 $do -- sleep 86400 > /tmp/ds.yaml
+```
+
+Edit `/tmp/ds.yaml`:
+- `kind: Deployment` → `kind: DaemonSet`
+- Delete `spec.replicas`
+- Delete `spec.strategy`
+
+Then:
+```sh
+k apply -f /tmp/ds.yaml
+k get ds,pods -o wide                               # confirm one pod per node
+```
+
+Or you can paste this YAML directly:
+
+```yaml
+apiVersion: apps/v1
+kind: DaemonSet
+metadata: { name: node-watch }
+spec:
+  selector: { matchLabels: { app: node-watch } }
+  template:
+    metadata: { labels: { app: node-watch } }
+    spec:
+      containers:
+        - name: nw
+          image: busybox:1.36
+          command: [sh, -c, "sleep 86400"]
+```
 
 ## 2.3 StatefulSet
 
@@ -48,13 +107,19 @@ spec:
 
 ## 2.4 Job and CronJob
 
-Create a Job `pi` running `perl:5.34` with command `perl -Mbignum=bpi -wle "print bpi(200)"`. Confirm it completes.
-
-Create a CronJob `hello` that runs every minute and echoes "hello at $(date)".
-
 ```sh
-k create cronjob hello --image=busybox:1.36 --schedule="*/1 * * * *" -- /bin/sh -c 'echo hello at $(date)'
+# Job: run-to-completion
+k create job pi --image=perl:5.34 -- perl -Mbignum=bpi -wle 'print bpi(200)'
+k get jobs,pods
+k logs job/pi                              # see the digits of pi
+k wait --for=condition=Complete job/pi --timeout=120s
+
+# CronJob: scheduled Job factory
+k create cronjob hello --image=busybox:1.36 \
+  --schedule="*/1 * * * *" -- /bin/sh -c 'echo hello at $(date)'
 k get cronjob,jobs,pods
+# wait 60s, then check that a Job got spawned:
+k get jobs -w                              # Ctrl-C after you see a job appear
 ```
 
 ## Cleanup
