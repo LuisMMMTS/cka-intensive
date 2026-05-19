@@ -1,20 +1,22 @@
 # PDF generation for the CKA Intensive (public) materials.
 #
-# Two converters:
-#   - marp-cli   for slide decks (trainees/slides/dayN.md → dist/slides/dayN.pdf)
-#   - pandoc     for labs, primers, cheatsheet, setup guides
+# One converter: pandoc + weasyprint (HTML+CSS engine, no LaTeX needed).
+# Slide decks render as paginated documents — not Marp-styled slides,
+# but readable and self-contained. If you want Marp's actual slide
+# rendering, install marp-cli separately and override the `marp` target.
 #
 # Trainer-only PDFs (handbook, schedule, scripts, solutions, quizzes) build
 # from the private cka-intensive-trainer repo and have their own Makefile.
 #
-# Install once:
-#   sudo apt-get install -y pandoc texlive-xetex texlive-fonts-recommended
-#   npm install -g @marp-team/marp-cli
+# Install once (macOS):
+#   brew install pandoc weasyprint
+# Install once (Debian):
+#   sudo apt-get install -y pandoc python3-weasyprint
 #
 # Targets:
 #   make            # everything (alias for `make all`)
 #   make all        # slides + labs + handouts
-#   make slides     # just the Marp decks  → dist/slides/
+#   make slides     # slide decks         → dist/slides/
 #   make labs       # all 20 labs          → dist/labs/
 #   make handouts   # README + cheatsheet + setup guides + primers
 #   make clean      # nuke dist/
@@ -23,14 +25,13 @@
 
 # ---------- tools ----------------------------------------------------------
 PANDOC      := pandoc
-MARP        := marp
-PANDOC_OPTS := --pdf-engine=xelatex \
-               -V geometry:margin=2cm \
-               -V mainfont="DejaVu Sans" \
-               -V monofont="DejaVu Sans Mono" \
-               -V fontsize=10pt \
+PANDOC_OPTS := --pdf-engine=weasyprint \
                --highlight-style=tango \
-               --toc --toc-depth=2
+               --toc --toc-depth=2 \
+               -V geometry:margin=2cm
+PANDOC_SLIDE_OPTS := --pdf-engine=weasyprint \
+                     --highlight-style=tango \
+                     -V geometry:margin=1.5cm
 
 # ---------- discovery ------------------------------------------------------
 SLIDE_SRCS    := $(wildcard trainees/slides/day*.md)
@@ -67,12 +68,13 @@ help:
 	@sed -n '1,/^# ---------- tools/p' $(MAKEFILE_LIST) | sed 's/^# \?//'
 
 # ---------- rules ----------------------------------------------------------
-# Marp slide decks: lossless export via Marp CLI. Marp picks up the frontmatter
-# (`marp: true`, theme, footer) automatically.
+# Slide decks rendered as paginated PDFs via pandoc + weasyprint. Marp
+# frontmatter (`marp: true`, theme, footer) is ignored by pandoc; the
+# document still reads well as study material.
 dist/slides/%.pdf: trainees/slides/%.md
 	@mkdir -p $(@D)
-	@echo "[marp] $< → $@"
-	@$(MARP) --pdf --allow-local-files -o $@ $<
+	@echo "[pandoc] $< → $@"
+	@$(PANDOC) $(PANDOC_SLIDE_OPTS) -o $@ $<
 
 # Lab PDFs. Lab paths look like trainees/day1/labs/lab2.md; the patsubst
 # above flattens them into dist/labs/day1/labs/lab2.pdf.
