@@ -45,10 +45,37 @@ Re-test from `tmp`. Both should now hang/timeout.
 
 ## 4.3 Allow frontend → backend
 
-Write a NetworkPolicy that allows pods labeled `app=frontend` to reach pods labeled `app=backend` on port 80. Apply it. Verify:
+```yaml
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: { name: allow-frontend-to-backend }
+spec:
+  podSelector: { matchLabels: { app: backend } }   # which pods this protects
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector: { matchLabels: { app: frontend } }
+      ports:
+        - protocol: TCP
+          port: 80
+```
 
-- `tmp` pod (no label) cannot reach `backend`
-- A pod labeled `app=frontend` (run with `k run f --image=busybox:1.36 --labels=app=frontend ...`) CAN reach `backend`
+Apply it (paste into a file or `cat | k apply -f -`).
+
+Verify:
+
+```sh
+# tmp pod (no label) — still blocked, default-deny still applies:
+k run tmp --rm -it --image=busybox:1.36 --restart=Never -- \
+  wget -qO- --timeout=5 backend
+# → connection timed out
+
+# labeled frontend pod — allowed by the new rule:
+k run f --rm -it --image=busybox:1.36 --restart=Never \
+  --labels=app=frontend -- \
+  wget -qO- --timeout=5 backend
+# → nginx welcome page
+```
 
 ## Deliverable
 

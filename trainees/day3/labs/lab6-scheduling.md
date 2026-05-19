@@ -25,11 +25,48 @@ Try to deploy a Deployment of 5 replicas with no toleration — they should avoi
 
 ## 6.3 nodeAffinity (preferred vs required)
 
-Write a Deployment that:
-- **requiredDuringSchedulingIgnoredDuringExecution:** must run on a node with `kubernetes.io/os=linux`
-- **preferredDuringSchedulingIgnoredDuringExecution:** prefers `disk=ssd`
+On the exam you regenerate this schema with `kubectl explain
+pod.spec.affinity.nodeAffinity` — do that at least once to learn the shape.
 
-Use `kubectl explain pod.spec.affinity.nodeAffinity` to recall the schema.
+Starter Deployment:
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: affinity-demo }
+spec:
+  replicas: 3
+  selector: { matchLabels: { app: affinity-demo } }
+  template:
+    metadata: { labels: { app: affinity-demo } }
+    spec:
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: kubernetes.io/os
+                    operator: In
+                    values: [linux]
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 50
+              preference:
+                matchExpressions:
+                  - key: disk
+                    operator: In
+                    values: [ssd]
+      containers:
+        - { name: nginx, image: nginx:1.27 }
+```
+
+```sh
+k apply -f affinity.yaml
+k get pods -l app=affinity-demo -o wide       # prefers the disk=ssd node
+```
+
+**Required** is a hard filter — pods stay Pending if no node matches.
+**Preferred** is a soft scoring nudge — scheduler still picks something
+even if no node has the label.
 
 ## 6.4 Resource requests & limits
 

@@ -12,22 +12,58 @@ k create ns lab2b && k config set-context --current --namespace=lab2b
 
 ## 2b.1 ConfigMap as env vars (single key)
 
-Create a ConfigMap `app-config` with:
+```sh
+k create cm app-config \
+  --from-literal=LOG_LEVEL=debug \
+  --from-literal=TIMEOUT=30s
 
-| Key | Value |
-|---|---|
-| `LOG_LEVEL` | `debug` |
-| `TIMEOUT` | `30s` |
+k get cm app-config -o yaml
+```
 
-Then create a Pod `env1` from `busybox:1.36` running `sleep 3600`, exposing `LOG_LEVEL` as an env var sourced from the ConfigMap.
+Pod `env1` with the single key wired as an env var:
 
-Verify with `k exec env1 -- env | grep LOG_LEVEL`.
+```yaml
+apiVersion: v1
+kind: Pod
+metadata: { name: env1 }
+spec:
+  containers:
+    - name: c
+      image: busybox:1.36
+      command: [sh, -c, sleep 3600]
+      env:
+        - name: LOG_LEVEL
+          valueFrom:
+            configMapKeyRef: { name: app-config, key: LOG_LEVEL }
+```
+
+```sh
+k apply -f env1.yaml
+k exec env1 -- env | grep LOG_LEVEL          # LOG_LEVEL=debug
+```
 
 ## 2b.2 ConfigMap as env vars (all keys)
 
-Pod `env2`, same image and command, but use `envFrom` to inject **all** keys of `app-config` as env vars (without listing each one).
+Pod `env2`, same image and command, but use `envFrom` to inject **all** keys
+of `app-config` at once:
 
-Verify both `LOG_LEVEL` and `TIMEOUT` show up.
+```yaml
+apiVersion: v1
+kind: Pod
+metadata: { name: env2 }
+spec:
+  containers:
+    - name: c
+      image: busybox:1.36
+      command: [sh, -c, sleep 3600]
+      envFrom:
+        - configMapRef: { name: app-config }
+```
+
+```sh
+k apply -f env2.yaml
+k exec env2 -- env | grep -E '^(LOG_LEVEL|TIMEOUT)='   # both appear
+```
 
 ## 2b.3 ConfigMap as a volume
 
@@ -49,9 +85,36 @@ k exec vol1 -- cat /etc/app/app.properties
 
 ## 2b.4 Secret as env
 
-Create a Secret `db` with `username=admin` and `password=s3cret`. Pod `sec1` exposes them as `DB_USER` and `DB_PASS` env vars.
+```sh
+k create secret generic db \
+  --from-literal=username=admin \
+  --from-literal=password=s3cret
 
-Verify with `k exec sec1 -- env | grep ^DB_`.
+k get secret db -o yaml          # values are base64'd (not encrypted!)
+```
+
+Pod `sec1` exposes them as `DB_USER` and `DB_PASS`:
+
+```yaml
+apiVersion: v1
+kind: Pod
+metadata: { name: sec1 }
+spec:
+  containers:
+    - name: c
+      image: busybox:1.36
+      command: [sh, -c, sleep 3600]
+      env:
+        - name: DB_USER
+          valueFrom: { secretKeyRef: { name: db, key: username } }
+        - name: DB_PASS
+          valueFrom: { secretKeyRef: { name: db, key: password } }
+```
+
+```sh
+k apply -f sec1.yaml
+k exec sec1 -- env | grep ^DB_   # DB_USER=admin, DB_PASS=s3cret
+```
 
 ## 2b.5 Probes
 

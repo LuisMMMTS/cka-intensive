@@ -53,7 +53,34 @@ k get pv,pvc
 
 ## 5.3 Static PV (manual binding)
 
-Create a `hostPath` PV (1Gi) and a PVC that binds to it explicitly via `volumeName`. Confirm `STATUS: Bound`.
+`hostPath` PVs are node-local — fine for labs, never for production.
+The PVC binds to a specific PV by name via `spec.volumeName`:
+
+```yaml
+apiVersion: v1
+kind: PersistentVolume
+metadata: { name: static-pv }
+spec:
+  capacity: { storage: 1Gi }
+  accessModes: [ReadWriteOnce]
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: ""               # empty string = no provisioner
+  hostPath: { path: /tmp/static-pv }
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata: { name: static-claim }
+spec:
+  accessModes: [ReadWriteOnce]
+  resources: { requests: { storage: 1Gi } }
+  storageClassName: ""               # must match the PV (empty here)
+  volumeName: static-pv              # explicit binding
+```
+
+```sh
+k apply -f static.yaml
+k get pv,pvc                         # STATUS: Bound on both
+```
 
 ## 5.4 Reclaim policy
 

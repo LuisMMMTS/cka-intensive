@@ -26,7 +26,32 @@ curl -s "$WORKER_IP:<nodeport>"
 
 ## 3.3 Headless service
 
-Create a service `web-headless` with `clusterIP: None`. Resolve it with `nslookup web-headless` from inside a pod and notice you get pod IPs back.
+`kubectl expose` can't create headless services (no `--cluster-ip=None` flag).
+Either use YAML or `kubectl create service`:
+
+```sh
+# Option A — kubectl create service
+k create service clusterip web-headless --clusterip="None" --tcp=80:80
+
+# Option B — YAML (more typical on the exam)
+cat <<'EOF' | k apply -f -
+apiVersion: v1
+kind: Service
+metadata: { name: web-headless }
+spec:
+  clusterIP: None
+  selector: { app: web }
+  ports: [{ port: 80, targetPort: 80 }]
+EOF
+```
+
+Resolve it from inside a pod — you get pod IPs back, not a service VIP:
+
+```sh
+k run dns --rm -it --image=busybox:1.36 --restart=Never -- \
+  nslookup web-headless
+# Expect: multiple Address lines, one per backing pod IP
+```
 
 ## 3.4 Ingress
 
