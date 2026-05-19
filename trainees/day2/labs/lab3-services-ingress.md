@@ -102,6 +102,49 @@ curl -H 'Host: web.cka.local' http://localhost:8080
 kill %1
 ```)
 
+## 3.5 Multi-host Ingress (common exam pattern)
+
+Create a second Deployment + Service so we have two backends to route
+between:
+
+```sh
+k create deploy api --image=hashicorp/http-echo --replicas=2 -- -text="hello from api"
+k expose deploy api --port=80 --target-port=5678
+```
+
+Then patch the Ingress to route by Host header — `web.cka.local` to
+`web`, `api.cka.local` to `api`, plus a path rule on `web.cka.local` for
+`/static` going to the same web service:
+
+```yaml
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata: { name: multi-web }
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: web.cka.local
+      http:
+        paths:
+          - { path: /static, pathType: Prefix, backend: { service: { name: web, port: { number: 80 } } } }
+          - { path: /,       pathType: Prefix, backend: { service: { name: web, port: { number: 80 } } } }
+    - host: api.cka.local
+      http:
+        paths:
+          - { path: /, pathType: Prefix, backend: { service: { name: api, port: { number: 80 } } } }
+```
+
+Test each route lands on the right backend:
+
+```sh
+curl -H 'Host: web.cka.local' http://localhost           # → nginx welcome
+curl -H 'Host: api.cka.local' http://localhost           # → "hello from api"
+curl -H 'Host: web.cka.local' http://localhost/static    # → nginx welcome (same backend)
+```
+
+The exam often gives you a working Ingress and asks you to add a second
+host or a new path rule — practice both.
+
 ## Deliverable
 
 `curl -H 'Host: web.cka.local' http://localhost` returns the nginx welcome page.

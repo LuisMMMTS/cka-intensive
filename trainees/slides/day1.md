@@ -1192,9 +1192,48 @@ k create secret docker-registry regcred --docker-server=... --docker-username=..
 
 ---
 
-## Probe handlers — three options
+## Where probes go in the YAML
+
+Probes live on the **container**, not the pod. For a Deployment that
+means `spec.template.spec.containers[N].{liveness,readiness,startup}Probe`.
+For a bare Pod, `spec.containers[N].{...}Probe`.
 
 ```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: web }
+spec:
+  replicas: 3
+  selector: { matchLabels: { app: web } }
+  template:                                     # ← Pod template
+    metadata: { labels: { app: web } }
+    spec:
+      containers:
+        - name: nginx
+          image: nginx:1.27
+          ports: [{ containerPort: 80 }]
+          livenessProbe:                        # ← here, INSIDE the container
+            httpGet: { path: /healthz, port: 80 }
+          readinessProbe:                       # ← here too
+            httpGet: { path: /, port: 80 }
+          startupProbe:                         # ← and here
+            httpGet: { path: /, port: 80 }
+            failureThreshold: 30
+            periodSeconds: 2
+```
+
+Same shape if it's a bare Pod — drop the Deployment wrapper, keep the
+`spec.containers[N].*Probe` block.
+
+---
+
+## Probe handlers — three options
+
+Each of `livenessProbe`, `readinessProbe`, `startupProbe` accepts exactly
+one of these three handlers:
+
+```yaml
+# 1) httpGet — most common; works for any HTTP endpoint
 livenessProbe:
   httpGet:
     path: /healthz
@@ -1202,16 +1241,18 @@ livenessProbe:
     httpHeaders:
       - { name: X-Probe, value: liveness }
 
+# 2) tcpSocket — just open a connection; no HTTP. Right for DBs / custom protos.
 readinessProbe:
   tcpSocket:
     port: 5432
 
+# 3) exec — run a command inside the container; exit 0 = healthy.
 startupProbe:
   exec:
     command: ["sh", "-c", "cat /tmp/ready"]
 ```
 
-Tunables on each:
+Tunables (set on each probe, not per handler):
 
 ```yaml
 initialDelaySeconds: 0       # wait this long before first probe

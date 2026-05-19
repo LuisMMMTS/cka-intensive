@@ -237,6 +237,40 @@ patches:
         value: 5
 ```
 
+## ConfigMap / Secret — three consumption patterns (memorize)
+
+Same shape for both. Swap `configMapKeyRef`→`secretKeyRef`,
+`configMapRef`→`secretRef`, `configMap:`→`secret:` / `secretName:`.
+
+```yaml
+spec:
+  containers:
+    - name: app
+      image: busybox:1.36
+      env:                                       # 1) ONE key as env
+        - name: LOG_LEVEL
+          valueFrom: { configMapKeyRef: { name: app-config, key: LOG_LEVEL } }
+        - name: DB_PASS
+          valueFrom: { secretKeyRef:    { name: db,         key: password  } }
+      envFrom:                                   # 2) ALL keys as env
+        - configMapRef: { name: app-config }
+        - secretRef:    { name: db }
+      volumeMounts:                              # 3) MOUNTED as files
+        - { name: cfg,     mountPath: /etc/app, readOnly: true }
+        - { name: dbcreds, mountPath: /etc/db,  readOnly: true }
+  volumes:
+    - name: cfg
+      configMap: { name: app-config }
+    - name: dbcreds
+      secret:
+        secretName: db
+        defaultMode: 0400                        # Secret-only: tighten perms
+```
+
+**Refresh on update**: env vars NEVER refresh (restart pod). Mounted
+volumes refresh ~60s, unless `subPath:` is set (then never). Use the
+volume pattern for TLS rotation.
+
 ## NetworkPolicy default-deny (memorize)
 
 ```yaml
@@ -250,11 +284,22 @@ spec:
 
 ## Probe basics
 
+Probes live on the **container**, not the pod. For a Deployment:
+`spec.template.spec.containers[N].{liveness,readiness,startup}Probe`.
+
 ```yaml
-livenessProbe:  { httpGet: { path: /healthz, port: 8080 }, periodSeconds: 10, failureThreshold: 3 }
-readinessProbe: { tcpSocket: { port: 8080 }, periodSeconds: 5 }
-startupProbe:   { httpGet: { path: /, port: 8080 }, failureThreshold: 30, periodSeconds: 2 }
+spec:
+  containers:
+    - name: app
+      image: nginx:1.27
+      livenessProbe:  { httpGet: { path: /healthz, port: 8080 }, periodSeconds: 10, failureThreshold: 3 }
+      readinessProbe: { tcpSocket: { port: 8080 }, periodSeconds: 5 }
+      startupProbe:   { httpGet: { path: /, port: 8080 }, failureThreshold: 30, periodSeconds: 2 }
 ```
+
+Handler types (one per probe): `httpGet`, `tcpSocket`, `exec: { command: [...] }`.
+Liveness failure → restart. Readiness failure → drop from Service endpoints.
+Startup gates the other two while it runs.
 
 ## Docs bookmarks (allowed in the exam)
 

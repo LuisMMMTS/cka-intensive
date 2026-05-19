@@ -183,13 +183,78 @@ Why mount Secrets as files instead of env vars?
 
 ## 2b.5 Probes
 
-Create a Deployment `web` (`nginx:1.27`, 3 replicas, port 80) with all three probes:
+Probes live on the **container**, not the pod or the Deployment.
+For a Deployment, the full path is
+`spec.template.spec.containers[N].{liveness,readiness,startup}Probe`.
 
-- **startup**: `httpGet /` on port 80; `failureThreshold: 30`, `periodSeconds: 2` (gives nginx 60s to boot)
-- **readiness**: `httpGet /` on port 80; `periodSeconds: 5`
-- **liveness**: `httpGet /` on port 80; `periodSeconds: 10`, `failureThreshold: 3`
+Apply this Deployment `web` (`nginx:1.27`, 3 replicas, port 80) with
+all three probes wired:
 
-Expose with a ClusterIP Service. From a debug pod, hit the service repeatedly.
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: web }
+spec:
+  replicas: 3
+  selector: { matchLabels: { app: web } }
+  template:                              # Pod template
+    metadata: { labels: { app: web } }
+    spec:
+      containers:                        # ← container array
+        - name: nginx                    # ← THIS container
+          image: nginx:1.27
+          ports: [{ containerPort: 80 }]
+          startupProbe:                  # ← probes nest INSIDE the container
+            httpGet: { path: /, port: 80 }
+            failureThreshold: 30
+            periodSeconds: 2             # 30 × 2s = 60s budget to start
+          readinessProbe:                # ← same level as startupProbe
+            httpGet: { path: /, port: 80 }
+            periodSeconds: 5
+          livenessProbe:                 # ← same level again
+            httpGet: { path: /, port: 80 }
+            periodSeconds: 10
+            failureThreshold: 3
+```
+
+```sh
+k apply -f web.yaml
+k expose deploy web --port=80
+k describe pod -l app=web | grep -A1 -E '(Liveness|Readiness|Startup):'
+```
+
+The `describe` output proves the probes are attached to the container.
+
+### Other probe handler types (know these for the exam)
+
+The same `livenessProbe` / `readinessProbe` / `startupProbe` blocks accept
+three handler types. Use the one that matches what your app can answer:
+
+```yaml
+# httpGet — works for any HTTP endpoint (most common)
+livenessProbe:
+  httpGet: { path: /healthz, port: 8080 }
+
+# tcpSocket — just open a TCP connection. Right for non-HTTP apps
+# (databases, custom protocols). Doesn't validate the response — only
+# that the port accepts connections.
+livenessProbe:
+  tcpSocket: { port: 5432 }
+  periodSeconds: 10
+
+# exec — run a command inside the container; exit 0 = healthy. Right
+# when you need to check something only the app's own binary can verify
+# (e.g. queue depth, license check).
+livenessProbe:
+  exec:
+    command: ["/bin/sh", "-c", "test -f /tmp/ready"]
+  periodSeconds: 15
+```
+
+Quick swap-test: edit your `web` deployment, change the readiness probe
+from `httpGet /` to `tcpSocket: { port: 80 }`, observe endpoints stay
+populated. Then change to `exec: { command: [test, -f, /tmp/never] }` —
+endpoints drain because the file doesn't exist.
 
 ## 2b.6 Break the readiness probe
 

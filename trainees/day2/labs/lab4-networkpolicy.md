@@ -77,6 +77,43 @@ k run f --rm -it --image=busybox:1.36 --restart=Never \
 # → nginx welcome page
 ```
 
+## 4.4 ipBlock — allow/deny by CIDR
+
+NetworkPolicy can also filter by source/destination IP range (handy
+when the "thing on the other side" isn't a labeled pod — external load
+balancer, on-prem service, the node network).
+
+Add this policy. It lets `backend` pods receive traffic from anything
+in `10.0.0.0/8` **except** `10.5.0.0/16`:
+
+```yaml
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: { name: allow-from-cidr }
+spec:
+  podSelector: { matchLabels: { app: backend } }
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - ipBlock:
+            cidr: 10.0.0.0/8
+            except: [10.5.0.0/16]
+      ports:
+        - { protocol: TCP, port: 80 }
+```
+
+Note: pod-to-pod traffic inside the cluster uses **pod IPs**, which on
+our kind cluster live in `192.168.0.0/16` (the Calico pod CIDR — see
+the Calico Installation in `kind-bootstrap.sh`). So this 10/8 rule
+wouldn't match anything in a pod-to-pod test inside our cluster.
+Test concept by changing the CIDR to `192.168.0.0/16` and trying from
+the `tmp` pod.
+
+You can combine `podSelector` + `namespaceSelector` + `ipBlock` in the
+same `from:` list — entries are OR'd. Inside one entry, podSelector AND
+namespaceSelector together are AND'd. **This is the AND/OR trap from
+the slides.**
+
 ## Deliverable
 
 Show the trainer the test results above and your NetworkPolicy YAML.

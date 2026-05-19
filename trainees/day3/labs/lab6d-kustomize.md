@@ -133,6 +133,45 @@ k -n prod get cm
 # env-7bgh8m4f7c    ← hash-suffixed name
 ```
 
+## 6d.7 secretGenerator
+
+Same idea as `configMapGenerator` but produces a Secret. Add to
+`overlays/prod/kustomization.yaml`:
+
+```yaml
+secretGenerator:
+  - name: db
+    literals:
+      - username=admin
+      - password=s3cret
+    type: Opaque                              # default; could also be kubernetes.io/tls
+```
+
+Re-apply, then verify a hash-suffixed Secret exists alongside the
+hash-suffixed ConfigMap:
+
+```sh
+k apply -k overlays/prod
+k -n prod get secret
+# db-7m4f7gk2t9    Opaque    2      5s
+```
+
+The Secret's name is hash-suffixed for the same reason ConfigMaps are:
+when the data changes, the generated name changes, which triggers a
+Deployment rollout that references it (no manual rollout needed —
+**immutable releases for secrets too**).
+
+You can also use `files:` to pull Secret data from a file:
+
+```yaml
+secretGenerator:
+  - name: web-tls
+    files:
+      - tls.crt
+      - tls.key
+    type: kubernetes.io/tls
+```
+
 ## Cleanup
 
 ```sh
