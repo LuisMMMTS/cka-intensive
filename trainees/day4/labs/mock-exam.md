@@ -68,7 +68,7 @@ In ns `q8`, create a NetworkPolicy `allow-frontend`:
 
 ## Q9 (6%) — Scheduling
 
-Add a taint `env=prod:NoSchedule` to node `cka-worker2`. Create a Deployment `prod-app` (`nginx:1.27`, 2 replicas) in ns `q9` that **tolerates** this taint AND uses a nodeAffinity that requires `kubernetes.io/os=linux`.
+Pick any **worker node** in your cluster (`kubectl get nodes` — pick one without the `control-plane` role; on the default kind setup that's `cka-worker` or `cka-worker2`). Add a taint `env=prod:NoSchedule` to it. Create a Deployment `prod-app` (`nginx:1.27`, 2 replicas) in ns `q9` that **tolerates** this taint AND uses a nodeAffinity that requires `kubernetes.io/os=linux`.
 
 ## Q10 (7%) — RBAC
 
