@@ -1,8 +1,11 @@
-# PDF generation for the CKA Intensive materials.
+# PDF generation for the CKA Intensive (public) materials.
 #
 # Two converters:
 #   - marp-cli   for slide decks (trainees/slides/dayN.md → dist/slides/dayN.pdf)
-#   - pandoc     for everything else (labs, primers, cheatsheet, trainer notes)
+#   - pandoc     for labs, primers, cheatsheet, setup guides
+#
+# Trainer-only PDFs (handbook, schedule, scripts, solutions, quizzes) build
+# from the private cka-intensive-trainer repo and have their own Makefile.
 #
 # Install once:
 #   sudo apt-get install -y pandoc texlive-xetex texlive-fonts-recommended
@@ -10,11 +13,10 @@
 #
 # Targets:
 #   make            # everything (alias for `make all`)
-#   make all        # slides + labs + handouts + trainer
+#   make all        # slides + labs + handouts
 #   make slides     # just the Marp decks  → dist/slides/
 #   make labs       # all 20 labs          → dist/labs/
 #   make handouts   # README + cheatsheet + setup guides + primers
-#   make trainer    # trainer handbook     → dist/trainer/
 #   make clean      # nuke dist/
 #
 # Re-running any target replaces (overwrites) the existing PDFs in place.
@@ -41,26 +43,22 @@ HANDOUT_SRCS  := trainees/README.md \
                  trainees/resources.md \
                  trainees/linux-primer.md \
                  trainees/docker-primer.md
-TRAINER_SRCS  := $(wildcard trainer/*.md)
 
-# Map src.md → dist/<sub>/src.pdf (preserves filename, drops directory)
 SLIDE_PDFS    := $(patsubst trainees/slides/%.md,dist/slides/%.pdf,$(SLIDE_SRCS))
 LAB_PDFS      := $(patsubst trainees/%.md,dist/labs/%.pdf,$(LAB_SRCS))
 HANDOUT_PDFS  := $(patsubst trainees/%.md,dist/handouts/%.pdf,$(HANDOUT_SRCS))
-TRAINER_PDFS  := $(patsubst trainer/%.md,dist/trainer/%.pdf,$(TRAINER_SRCS))
 
 # ---------- public targets -------------------------------------------------
-.PHONY: all slides labs handouts trainer clean help
+.PHONY: all slides labs handouts clean help
 .DEFAULT_GOAL := all
 
-all: slides labs handouts trainer
+all: slides labs handouts
 	@echo
 	@echo "[make] all PDFs in dist/"
 
 slides:   $(SLIDE_PDFS)
 labs:     $(LAB_PDFS)
 handouts: $(HANDOUT_PDFS)
-trainer:  $(TRAINER_PDFS)
 
 clean:
 	rm -rf dist/
@@ -77,8 +75,7 @@ dist/slides/%.pdf: trainees/slides/%.md
 	@$(MARP) --pdf --allow-local-files -o $@ $<
 
 # Lab PDFs. Lab paths look like trainees/day1/labs/lab2.md; the patsubst
-# above flattens them into dist/labs/day1/labs/lab2.pdf which is a directory
-# we want to create.
+# above flattens them into dist/labs/day1/labs/lab2.pdf.
 dist/labs/%.pdf: trainees/%.md
 	@mkdir -p $(@D)
 	@echo "[pandoc] $< → $@"
@@ -86,12 +83,6 @@ dist/labs/%.pdf: trainees/%.md
 
 # Handouts (cheatsheet, setup guides, primers).
 dist/handouts/%.pdf: trainees/%.md
-	@mkdir -p $(@D)
-	@echo "[pandoc] $< → $@"
-	@$(PANDOC) $(PANDOC_OPTS) -o $@ $<
-
-# Trainer notes.
-dist/trainer/%.pdf: trainer/%.md
 	@mkdir -p $(@D)
 	@echo "[pandoc] $< → $@"
 	@$(PANDOC) $(PANDOC_OPTS) -o $@ $<
