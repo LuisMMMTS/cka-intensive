@@ -1118,6 +1118,51 @@ k create secret generic db \
 
 ---
 
+## Secret consumed three ways — full example
+
+```yaml
+spec:
+  containers:
+    - name: app
+      image: busybox:1.36
+      command: ["sleep", "3600"]
+      env:
+        - name: DB_PASS                              # 1) single key as env
+          valueFrom: { secretKeyRef: { name: db, key: password } }
+      envFrom:
+        - secretRef: { name: db }                    # 2) all keys as env
+      volumeMounts:
+        - { name: dbcreds, mountPath: /etc/db, readOnly: true }
+  volumes:
+    - name: dbcreds                                  # 3) mount as files
+      secret:
+        secretName: db
+        defaultMode: 0400                            # tighten file perms
+        items:                                       # optional: project specific keys
+          - { key: password, path: password }
+```
+
+Each key becomes a file at `<mountPath>/<key>` — same as ConfigMap, but
+the file is sourced from `tmpfs` (RAM-backed) so the value never hits
+the node's disk.
+
+---
+
+## Secret — refresh semantics
+
+| Consumption | Refreshes when Secret changes? |
+|---|---|
+| `env` (single key) | ❌ Never. Restart the pod. |
+| `envFrom` | ❌ Never. Restart the pod. |
+| `volumeMount` (no subPath) | ✅ Yes — kubelet syncs ~every 60s |
+| `volumeMount` with `subPath:` | ❌ Never |
+| Secret with `immutable: true` | n/a — can't be edited |
+
+Same rules as ConfigMap. For TLS rotation, mount the cert+key as a
+volume — apps see the rotated material without a restart.
+
+---
+
 ## Secret types you might see on the exam
 
 | Type | Use |

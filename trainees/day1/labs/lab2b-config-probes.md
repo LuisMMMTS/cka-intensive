@@ -116,6 +116,71 @@ k apply -f sec1.yaml
 k exec sec1 -- env | grep ^DB_   # DB_USER=admin, DB_PASS=s3cret
 ```
 
+## 2b.4b Secret as env (all keys via `envFrom`)
+
+Pod `sec2` — same Secret, but inject every key without naming them:
+
+```yaml
+apiVersion: v1
+kind: Pod
+metadata: { name: sec2 }
+spec:
+  containers:
+    - name: c
+      image: busybox:1.36
+      command: [sh, -c, sleep 3600]
+      envFrom:
+        - secretRef: { name: db }
+```
+
+```sh
+k apply -f sec2.yaml
+k exec sec2 -- env | grep -E '^(username|password)='  # both keys appear
+```
+
+Note: with `envFrom`, env-var names match the Secret's key names exactly
+(no rename). If you need `DB_USER` instead of `username`, use the
+`secretKeyRef` form from 2b.4.
+
+## 2b.4c Secret as a volume mount
+
+Pod `sec3` — same Secret, mounted as files. Each key becomes a file at
+`mountPath/<key>`:
+
+```yaml
+apiVersion: v1
+kind: Pod
+metadata: { name: sec3 }
+spec:
+  containers:
+    - name: c
+      image: busybox:1.36
+      command: [sh, -c, sleep 3600]
+      volumeMounts:
+        - { name: dbcreds, mountPath: /etc/db, readOnly: true }
+  volumes:
+    - name: dbcreds
+      secret:
+        secretName: db
+        defaultMode: 0400        # tighten file perms (root-only read)
+```
+
+```sh
+k apply -f sec3.yaml
+k exec sec3 -- ls /etc/db                   # username  password
+k exec sec3 -- cat /etc/db/password          # s3cret
+k exec sec3 -- stat -c '%a' /etc/db/password # 400 (only root can read)
+```
+
+Why mount Secrets as files instead of env vars?
+- **`/proc/<pid>/environ` leaks env vars** to anyone who can read it
+  (other containers in the same pod, debug exec). Mounted files are
+  scoped by the file permissions you set.
+- **Rotation**: edit the Secret → kubelet syncs the mounted file
+  within ~60s with no pod restart (TLS rotation pattern). Env vars
+  never refresh; you'd need to restart the pod.
+- TLS certs and SSH keys are almost always mounted, not env'd.
+
 ## 2b.5 Probes
 
 Create a Deployment `web` (`nginx:1.27`, 3 replicas, port 80) with all three probes:
