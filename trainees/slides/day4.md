@@ -485,6 +485,60 @@ The exam tests kubeadm because it tests the **full surface**. In your day job yo
 
 ---
 
+## K8s in the wild — curiosities
+
+Where Kubernetes is actually running today, beyond the typical data center:
+
+- **Every Chick-fil-A restaurant** — k3s on three small boxes, GitOps-managed from HQ. ~2,800 clusters. The original "edge k8s at scale" case study.
+- **5G mobile core networks** — basically all of them. Ericsson, Nokia, Cisco, Open-RAN — k8s is the runtime for network functions that used to be appliances.
+- **In orbit** — Spire Global runs k3s clusters on satellites; orchestrates sensor workloads across constellations. Lockheed Martin runs k8s on the LM-400 satellite bus.
+- **Submarines and naval combat systems** — Lockheed's AEGIS combat-system modernization uses k8s for distributed sensor fusion.
+- **Industrial / factory floors** — Siemens, Rockwell, Schneider ship k8s on PLCs. KubeEdge and OpenYurt extend the model to disconnected operation (assume control plane is hours away).
+- **Trains and ships** — Deutsche Bahn runs k3s on ICE trains for onboard services. Multiple shipping lines run k3s in vessel server rooms.
+- **Autonomous vehicles** — most AV companies use k8s in dev/sim infra; some (e.g. some delivery-bot startups) run k3s **on the vehicle** for sensor processing.
+- **Air-gapped government and finance** — fully offline clusters with mirrored registries, signed images, and zero outbound internet. Most pain comes from "no kubectl logs to a cloud bucket."
+
+Common thread: **k8s won everywhere** because the API is the same whether you're on AWS or on a moving train. Skills transfer.
+
+---
+
+## Immutable host OS — the next layer down
+
+"Normal" Linux + k8s is two operational surfaces: the OS (SSH, apt, systemd) AND the cluster. **Immutable OSes collapse this to one.**
+
+| OS | From | Idea |
+|---|---|---|
+| **Talos Linux** | Sidero Labs | No SSH, no shell, no package manager. Whole OS is k8s-shaped. Configure via gRPC API; reboot to apply. *"The cluster IS the OS."* |
+| **Bottlerocket** | AWS | Atomic image-based root FS (RPM-OSTree). SSH only via a control container. Designed for ECS and EKS but works anywhere. |
+| **Flatcar Container Linux** | (community) | Successor to CoreOS Container Linux (Red Hat retired CoreOS). Atomic A/B updates, Ignition-style config. |
+| **Fedora CoreOS** | Red Hat | Same family; auto-updating immutable OS for container workloads. |
+
+What changes operationally:
+
+- **No SSH-into-a-node and edit a file.** Config is declarative, pushed from outside (Ignition, Talos API, GitOps).
+- **Updates are atomic.** A failed update rolls back automatically. No `apt-get upgrade` half-states.
+- **Smaller attack surface.** No package manager → no supply-chain attack via apt. No shell → no live exploitation path. No setuid binaries.
+- **Different debugging mindset.** When you can't SSH, you `kubectl debug node/...` or you read the audit log. The CKA troubleshooting playbook still works; what changes is how you reach the node.
+
+CKA doesn't test these directly, but the **immutable + GitOps** pattern is what modern clusters look like. Talos in particular is having a moment in 2026 — it's the example to know.
+
+---
+
+## Risky environments — what changes when you can't reach the cluster
+
+Edge, satellite, submarine, air-gapped: the cluster has to keep working with **no human in the loop**.
+
+- **GitOps is non-negotiable.** Argo CD or Flux watches a git repo and reconciles. You push commits; the cluster pulls them at the next sync. Disconnection just means the sync is later.
+- **Mirrored registries.** Pull-through caches (Harbor, distribution) or air-gapped registries (sealed registry + signed manifests). No `docker pull` from Docker Hub mid-mission.
+- **Local DNS, local PKI.** Self-signed CA distributed via Ignition / Talos config; cert rotation handled by cert-manager with an internal Issuer.
+- **Disconnected node operation.** KubeEdge / OpenYurt let a node run for hours/days disconnected from the control plane and resync when reachable. The control plane plans for partition, not assumes connectivity.
+- **Smaller-than-quorum failure modes.** A 3-node satellite cluster losing 2 nodes in a solar event still has to do *something*. Single-node operation patterns matter more than HA voting at the edge.
+- **Trust, not networking.** When you can't reach a node to revoke its kubelet cert, what stops a stolen unit from joining a fleet? Hardware attestation (TPM-backed boot), short-lived join tokens, and signed bootstrap configs. The frontier of cluster security.
+
+If you take one thing from this section: **k8s in 2026 runs in places nobody imagined when k8s was designed for Google data centers in 2014.** That's the headline.
+
+---
+
 # Live demo: k3s in 60 seconds
 
 ```sh

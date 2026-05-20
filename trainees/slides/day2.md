@@ -539,6 +539,49 @@ idempotent — re-running is a no-op.
 
 ---
 
+## Why isn't Gateway API in core, if it's the future?
+
+A reasonable question. The short answer: **modern Kubernetes deliberately
+keeps new APIs out of core, even when they become standard.** Gateway
+API is the showcase of this philosophy.
+
+**The Ingress lesson.** Ingress went into core in 2015 (v1beta1). It got
+"stuck" at v1beta1 for **four years** because nobody could agree on
+improvements without breaking every cluster that used it. It finally
+graduated to v1 in 2019 with almost no structural change. The pain of
+"once it's in core, you can't fix it" is what drove the new philosophy.
+
+**The CRD-first principle.** Since ~2018, new Kubernetes APIs live as
+CRDs first, often forever. CRDs can iterate freely — `v1alpha1` →
+`v1alpha2` → `v1beta1` → `v1` — with breaking changes at each step,
+because cluster operators opt in by installing them. Core APIs can
+never break. So putting an API in core *limits* it.
+
+**Core is shrinking, not growing.** The same trend across the project:
+
+| Used to be in-tree | Now external |
+|---|---|
+| Dockershim (container runtime) | CRI (any runtime) |
+| In-tree cloud providers (AWS/GCP/Azure) | external `cloud-controller-manager` |
+| In-tree volume drivers (gce-pd, aws-ebs, ...) | CSI drivers |
+| Kube-DNS | CoreDNS (a separate project) |
+| (Originally) Network plumbing | CNI plugins |
+
+The trajectory is clear: **everything that can be a plugin, should be a plugin.** Gateway API fits this pattern — networking implementations differ across vendors (Envoy, nginx, eBPF on Cilium, cloud-native), and a CRD-based API lets each ship at its own pace.
+
+**"GA as a CRD" is still GA.** Gateway API v1 (GA in k8s 1.31) is
+genuinely stable — the CRD manifests are versioned, the schema is
+frozen, and SIG-Network owns it the same way core APIs are owned.
+Being outside core does **not** mean experimental.
+
+**Practical implication for the exam.** When an exam question (or a
+real cluster) needs Gateway API, the cluster operator has installed the
+CRDs and a controller. You as a user just write `Gateway` and
+`HTTPRoute` objects against an existing `GatewayClass`. The plumbing is
+someone else's job. Same mental model as Ingress + Ingress controller.
+
+---
+
 ## Gateway API — the three resources
 
 ```
